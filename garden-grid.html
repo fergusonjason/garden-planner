@@ -1,0 +1,681 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Garden Planner — 40×25 ft</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Courier+Prime:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --soil: #3d2b1f;
+    --soil-light: #5c3d2e;
+    --grass: #4a7c59;
+    --grass-light: #6aab7b;
+    --accent: #c9a84c;
+    --accent-light: #e8c96d;
+    --cream: #f5f0e8;
+    --text: #1a1209;
+    --grid-line: rgba(255,255,255,0.15);
+    --cell-size: 22px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: #1a1209;
+    font-family: 'Courier Prime', monospace;
+    color: var(--cream);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 32px 20px;
+  }
+
+  header {
+    text-align: center;
+    margin-bottom: 28px;
+  }
+
+  header h1 {
+    font-family: 'Playfair Display', serif;
+    font-size: 2.2rem;
+    color: var(--accent-light);
+    letter-spacing: 0.04em;
+    margin-bottom: 4px;
+  }
+
+  header p {
+    font-size: 0.8rem;
+    color: var(--grass-light);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+
+  .toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 20px;
+    justify-content: center;
+  }
+
+  .tool-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    border-radius: 3px;
+    border: 1.5px solid transparent;
+    cursor: pointer;
+    font-family: 'Courier Prime', monospace;
+    font-size: 0.78rem;
+    letter-spacing: 0.06em;
+    transition: all 0.15s;
+    background: var(--soil-light);
+    color: var(--cream);
+    border-color: var(--soil-light);
+  }
+
+  .tool-btn:hover { border-color: var(--accent); }
+  .tool-btn.active { background: var(--accent); color: var(--text); border-color: var(--accent); }
+
+  .swatch {
+    width: 12px; height: 12px; border-radius: 2px; display: inline-block;
+  }
+
+  .workspace {
+    display: flex;
+    gap: 16px;
+    align-items: flex-start;
+  }
+
+  .ruler-corner { width: 28px; height: 28px; }
+
+  .ruler-x {
+    display: flex;
+    height: 28px;
+    margin-left: 28px;
+  }
+
+  .ruler-y {
+    display: flex;
+    flex-direction: column;
+    width: 28px;
+  }
+
+  .ruler-cell {
+    width: var(--cell-size);
+    height: var(--cell-size);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.55rem;
+    color: var(--accent);
+    opacity: 0.7;
+    flex-shrink: 0;
+  }
+
+  .ruler-cell.labeled { opacity: 1; font-weight: 700; }
+
+  .grid-wrapper {
+    border: 2px solid var(--accent);
+    box-shadow: 0 0 40px rgba(201,168,76,0.15), inset 0 0 60px rgba(0,0,0,0.3);
+    position: relative;
+  }
+
+  #garden-grid {
+    display: grid;
+    grid-template-columns: repeat(40, var(--cell-size));
+    grid-template-rows: repeat(25, var(--cell-size));
+    background: #2a4a30;
+    cursor: crosshair;
+    user-select: none;
+  }
+
+  .cell {
+    width: var(--cell-size);
+    height: var(--cell-size);
+    border-right: 1px solid var(--grid-line);
+    border-bottom: 1px solid var(--grid-line);
+    transition: filter 0.05s;
+    position: relative;
+  }
+
+  .cell:hover { filter: brightness(1.4); }
+
+  /* 5ft marker lines */
+  .cell[data-col="4"], .cell[data-col="9"], .cell[data-col="14"],
+  .cell[data-col="19"], .cell[data-col="24"], .cell[data-col="29"],
+  .cell[data-col="34"], .cell[data-col="39"] {
+    border-right: 1px solid rgba(255,255,255,0.35);
+  }
+
+  .cell[data-row="4"], .cell[data-row="9"], .cell[data-row="14"],
+  .cell[data-row="19"], .cell[data-row="24"] {
+    border-bottom: 1px solid rgba(255,255,255,0.35);
+  }
+
+  /* zone colors */
+  .cell[data-zone="bed"]      { background: #6b3a2a; }
+  .cell[data-zone="path"]     { background: #8b7355; }
+  .cell[data-zone="lawn"]     { background: #3d6b45; }
+  .cell[data-zone="water"]    { background: #2a5a7c; }
+  .cell[data-zone="compost"]  { background: #4a3a1a; }
+  .cell[data-zone="flowers"]  { background: #7a3a5a; }
+  .cell[data-zone="erase"]    { background: #2a4a30; }
+
+  .legend {
+    margin-top: 20px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px;
+    justify-content: center;
+    font-size: 0.72rem;
+    color: var(--cream);
+    opacity: 0.8;
+  }
+
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .legend-swatch {
+    width: 14px; height: 14px; border-radius: 2px;
+    border: 1px solid rgba(255,255,255,0.2);
+  }
+
+  .info-bar {
+    margin-top: 14px;
+    font-size: 0.72rem;
+    color: var(--accent);
+    letter-spacing: 0.08em;
+    opacity: 0.8;
+    display: flex;
+    gap: 24px;
+  }
+
+  #coord-display { color: var(--grass-light); }
+
+  .command-bar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 18px;
+    background: var(--soil-light);
+    border: 1.5px solid var(--accent);
+    border-radius: 4px;
+    padding: 8px 12px;
+    max-width: 900px;
+    width: 100%;
+  }
+
+  .cmd-label {
+    font-size: 0.62rem;
+    letter-spacing: 0.14em;
+    color: var(--accent);
+    white-space: nowrap;
+    font-weight: 700;
+  }
+
+  #cmd-input {
+    flex: 1;
+    background: transparent;
+    border: none;
+    outline: none;
+    color: var(--cream);
+    font-family: 'Courier Prime', monospace;
+    font-size: 0.88rem;
+    min-width: 0;
+  }
+
+  #cmd-input::placeholder { color: rgba(245,240,232,0.3); }
+
+  #cmd-feedback {
+    height: 22px;
+    font-size: 0.75rem;
+    letter-spacing: 0.06em;
+    margin-top: 6px;
+    text-align: center;
+    transition: color 0.3s;
+  }
+
+  .feedback-ok  { color: var(--grass-light); }
+  .feedback-err { color: #e07070; }
+
+  .plant-ref {
+    margin-top: 18px;
+    max-width: 900px;
+    width: 100%;
+  }
+
+  .ref-title {
+    font-size: 0.68rem;
+    letter-spacing: 0.1em;
+    color: var(--accent);
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+
+  .ref-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .ref-chip {
+    background: var(--soil-light);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 3px;
+    padding: 4px 10px;
+    font-size: 0.68rem;
+    color: var(--cream);
+    opacity: 0.85;
+    cursor: default;
+  }
+
+  .ref-chip span { color: var(--accent-light); }
+
+  .btn-action {
+    padding: 7px 18px;
+    border-radius: 3px;
+    border: 1.5px solid var(--accent);
+    background: transparent;
+    color: var(--accent);
+    font-family: 'Courier Prime', monospace;
+    font-size: 0.78rem;
+    cursor: pointer;
+    letter-spacing: 0.08em;
+    transition: all 0.15s;
+  }
+  .btn-action:hover { background: var(--accent); color: var(--text); }
+
+  .actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 14px;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Garden Planner</h1>
+  <p>40 ft × 25 ft &nbsp;·&nbsp; 1,000 sq ft &nbsp;·&nbsp; Each cell = 1 sq ft</p>
+</header>
+
+<div class="toolbar" id="toolbar">
+  <button class="tool-btn active" data-zone="bed">
+    <span class="swatch" style="background:#6b3a2a"></span> Garden Bed
+  </button>
+  <button class="tool-btn" data-zone="path">
+    <span class="swatch" style="background:#8b7355"></span> Path
+  </button>
+  <button class="tool-btn" data-zone="lawn">
+    <span class="swatch" style="background:#3d6b45"></span> Lawn
+  </button>
+  <button class="tool-btn" data-zone="water">
+    <span class="swatch" style="background:#2a5a7c"></span> Water Feature
+  </button>
+  <button class="tool-btn" data-zone="compost">
+    <span class="swatch" style="background:#4a3a1a"></span> Compost
+  </button>
+  <button class="tool-btn" data-zone="flowers">
+    <span class="swatch" style="background:#7a3a5a"></span> Flowers
+  </button>
+  <button class="tool-btn" data-zone="erase">
+    <span class="swatch" style="background:#2a4a30; border:1px solid #fff4"></span> Erase
+  </button>
+</div>
+
+<div>
+  <!-- Top ruler -->
+  <div style="display:flex; margin-left:28px;">
+    <div class="ruler-x" id="ruler-x"></div>
+  </div>
+
+  <div style="display:flex;">
+    <!-- Side ruler -->
+    <div class="ruler-y" id="ruler-y"></div>
+
+    <!-- Grid -->
+    <div class="grid-wrapper">
+      <div id="garden-grid"></div>
+    </div>
+  </div>
+</div>
+
+<div class="info-bar">
+  <span id="coord-display">Hover to see coordinates</span>
+  <span id="area-display">Painted: 0 sq ft</span>
+</div>
+
+<div class="actions">
+  <button class="btn-action" onclick="clearGrid()">Clear All</button>
+  <button class="btn-action" onclick="exportPNG()">Export PNG</button>
+  <button class="btn-action" onclick="exportPDF()">Export PDF</button>
+</div>
+
+<div class="command-bar">
+  <div class="cmd-label">COMMAND</div>
+  <input id="cmd-input" type="text" placeholder='e.g. "create 3 rows of tomatoes" or "create a row of carrots"' />
+  <button class="btn-action" onclick="runCommand()">↵ Plant</button>
+</div>
+
+<div id="cmd-feedback"></div>
+
+<div class="plant-ref">
+  <div class="ref-title">Plant Row Reference <span style="opacity:.5">(row width × gap between rows)</span></div>
+  <div class="ref-grid" id="plant-ref"></div>
+</div>
+
+<div class="legend">
+  <div class="legend-item"><div class="legend-swatch" style="background:#6b3a2a"></div> Garden Bed</div>
+  <div class="legend-item"><div class="legend-swatch" style="background:#8b7355"></div> Path</div>
+  <div class="legend-item"><div class="legend-swatch" style="background:#3d6b45"></div> Lawn</div>
+  <div class="legend-item"><div class="legend-swatch" style="background:#2a5a7c"></div> Water Feature</div>
+  <div class="legend-item"><div class="legend-swatch" style="background:#4a3a1a"></div> Compost</div>
+  <div class="legend-item"><div class="legend-swatch" style="background:#7a3a5a"></div> Flowers</div>
+</div>
+
+<script>
+  const COLS = 40, ROWS = 25;
+  const grid = document.getElementById('garden-grid');
+  let currentZone = 'bed';
+  let isPainting = false;
+  let paintedCount = 0;
+
+  // Build top ruler
+  const rulerX = document.getElementById('ruler-x');
+  for (let c = 0; c < COLS; c++) {
+    const d = document.createElement('div');
+    d.className = 'ruler-cell' + ((c+1) % 5 === 0 ? ' labeled' : '');
+    d.style.width = getComputedStyle(document.documentElement).getPropertyValue('--cell-size') || '22px';
+    d.textContent = (c+1) % 5 === 0 ? c+1 : '';
+    rulerX.appendChild(d);
+  }
+
+  // Build side ruler
+  const rulerY = document.getElementById('ruler-y');
+  for (let r = 0; r < ROWS; r++) {
+    const d = document.createElement('div');
+    d.className = 'ruler-cell' + ((r+1) % 5 === 0 ? ' labeled' : '');
+    d.style.height = getComputedStyle(document.documentElement).getPropertyValue('--cell-size') || '22px';
+    d.textContent = (r+1) % 5 === 0 ? r+1 : '';
+    rulerY.appendChild(d);
+  }
+
+  // Build grid cells
+  for (let r = 0; r < ROWS; r++) {
+    for (let c = 0; c < COLS; c++) {
+      const cell = document.createElement('div');
+      cell.className = 'cell';
+      cell.dataset.row = r;
+      cell.dataset.col = c;
+
+      cell.addEventListener('mouseenter', (e) => {
+        document.getElementById('coord-display').textContent = `Col ${c+1} ft, Row ${r+1} ft`;
+        if (isPainting) paint(cell);
+      });
+      cell.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        isPainting = true;
+        paint(cell);
+      });
+
+      grid.appendChild(cell);
+    }
+  }
+
+  document.addEventListener('mouseup', () => isPainting = false);
+
+  function paint(cell) {
+    const prev = cell.dataset.zone;
+    if (currentZone === 'erase') {
+      if (prev) { delete cell.dataset.zone; paintedCount = Math.max(0, paintedCount-1); }
+    } else {
+      if (!prev) paintedCount++;
+      cell.dataset.zone = currentZone;
+    }
+    document.getElementById('area-display').textContent = `Painted: ${paintedCount} sq ft`;
+  }
+
+  // Toolbar
+  document.getElementById('toolbar').addEventListener('click', (e) => {
+    const btn = e.target.closest('.tool-btn');
+    if (!btn) return;
+    document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    currentZone = btn.dataset.zone;
+  });
+
+  function clearGrid() {
+    document.querySelectorAll('.cell').forEach(c => {
+      delete c.dataset.zone;
+      delete c.dataset.customColor;
+      c.style.background = '';
+    });
+    paintedCount = 0;
+    document.getElementById('area-display').textContent = 'Painted: 0 sq ft';
+  }
+
+  // ─── Plant Database ─────────────────────────────────────────────────────────
+  // rowWidth: how many ft wide the planted strip is
+  // gap: recommended ft between row centers (so space between strips = gap - rowWidth)
+  // color: hex fill
+  // aliases: alternate names accepted in commands
+  const PLANTS = {
+    tomato:     { rowWidth:2, gap:4, color:'#b84a3a', aliases:['tomatoes','tomato'] },
+    pepper:     { rowWidth:1, gap:2, color:'#c4632a', aliases:['peppers','pepper','capsicum'] },
+    carrot:     { rowWidth:1, gap:1, color:'#d4782a', aliases:['carrots','carrot'] },
+    lettuce:    { rowWidth:1, gap:1, color:'#5a9e4a', aliases:['lettuce','salad'] },
+    kale:       { rowWidth:1, gap:2, color:'#3a7a3a', aliases:['kale'] },
+    spinach:    { rowWidth:1, gap:1, color:'#4a8a4a', aliases:['spinach'] },
+    cucumber:   { rowWidth:2, gap:3, color:'#4a8a2a', aliases:['cucumbers','cucumber'] },
+    zucchini:   { rowWidth:3, gap:4, color:'#3a7a2a', aliases:['zucchini','courgette','squash'] },
+    corn:       { rowWidth:1, gap:2, color:'#c9a84c', aliases:['corn','maize','sweetcorn'] },
+    bean:       { rowWidth:1, gap:2, color:'#7a9a4a', aliases:['beans','bean','green bean','green beans'] },
+    pea:        { rowWidth:1, gap:2, color:'#6a9a5a', aliases:['peas','pea'] },
+    onion:      { rowWidth:1, gap:1, color:'#b89a7a', aliases:['onions','onion'] },
+    garlic:     { rowWidth:1, gap:1, color:'#c8b898', aliases:['garlic'] },
+    potato:     { rowWidth:1, gap:3, color:'#a89060', aliases:['potatoes','potato'] },
+    strawberry: { rowWidth:1, gap:2, color:'#c84a5a', aliases:['strawberries','strawberry'] },
+    sunflower:  { rowWidth:1, gap:2, color:'#e8c020', aliases:['sunflowers','sunflower'] },
+    herb:       { rowWidth:1, gap:1, color:'#7aba8a', aliases:['herbs','herb','basil','parsley','cilantro','mint','thyme','oregano','rosemary','dill'] },
+    radish:     { rowWidth:1, gap:1, color:'#c84a7a', aliases:['radishes','radish'] },
+    beet:       { rowWidth:1, gap:1, color:'#8a2a5a', aliases:['beets','beet','beetroot'] },
+    cabbage:    { rowWidth:2, gap:2, color:'#4a7a5a', aliases:['cabbage','cabbages'] },
+    broccoli:   { rowWidth:2, gap:2, color:'#3a6a4a', aliases:['broccoli'] },
+    cauliflower:{ rowWidth:2, gap:2, color:'#c8c8a0', aliases:['cauliflower'] },
+    melon:      { rowWidth:3, gap:5, color:'#8aba4a', aliases:['melons','melon','watermelon','cantaloupe'] },
+    pumpkin:    { rowWidth:4, gap:6, color:'#d06a20', aliases:['pumpkins','pumpkin'] },
+    eggplant:   { rowWidth:2, gap:3, color:'#6a3a8a', aliases:['eggplant','aubergine'] },
+    path:       { rowWidth:2, gap:0, color:'#8b7355', aliases:['path','walkway','aisle'] },
+  };
+
+  // Build plant reference card
+  const refEl = document.getElementById('plant-ref');
+  Object.entries(PLANTS).forEach(([key, p]) => {
+    if (key === 'path') return;
+    const chip = document.createElement('div');
+    chip.className = 'ref-chip';
+    const sep = p.gap - p.rowWidth;
+    chip.innerHTML = `${p.aliases[0]} <span>${p.rowWidth}ft wide, ${sep}ft sep</span>`;
+    chip.title = `Aliases: ${p.aliases.join(', ')}`;
+    refEl.appendChild(chip);
+  });
+
+  function findPlant(word) {
+    const w = word.toLowerCase().trim();
+    for (const [key, p] of Object.entries(PLANTS)) {
+      if (p.aliases.some(a => w.includes(a) || a.includes(w))) return { key, ...p };
+    }
+    return null;
+  }
+
+  // Tracks next available X column (0-indexed)
+  let nextCol = 0;
+
+  function createRows(count, plant) {
+    const needed = count * plant.gap - (plant.gap - plant.rowWidth); // total X span needed
+    if (nextCol + needed > COLS) {
+      return { ok: false, msg: `Not enough space! Only ${COLS - nextCol} ft remaining on X axis.` };
+    }
+
+    const cells = document.querySelectorAll('.cell');
+
+    for (let i = 0; i < count; i++) {
+      const startCol = nextCol + i * plant.gap;
+      for (let row = 0; row < ROWS; row++) {
+        for (let w = 0; w < plant.rowWidth; w++) {
+          const col = startCol + w;
+          if (col >= COLS) continue;
+          const idx = row * COLS + col;
+          cells[idx].style.background = plant.color;
+          cells[idx].dataset.zone = 'custom';
+          cells[idx].dataset.customColor = plant.color;
+        }
+      }
+    }
+
+    const startedAt = nextCol;
+    nextCol += count * plant.gap;
+    const sep = plant.gap - plant.rowWidth;
+    return {
+      ok: true,
+      msg: `✓ Planted ${count} row${count>1?'s':''} of ${plant.aliases[0]} — ${plant.rowWidth}ft wide, ${sep}ft apart, starting at X=${startedAt+1}ft. Next free column: X=${nextCol+1}ft.`
+    };
+  }
+
+  function runCommand() {
+    const raw = document.getElementById('cmd-input').value.toLowerCase().trim();
+    const fb = document.getElementById('cmd-feedback');
+
+    // Parse count: "a" = 1, digits, or word numbers
+    const wordNums = {one:1,two:2,three:3,four:4,five:5,six:6,seven:7,eight:8,nine:9,ten:10};
+    let count = 1;
+    const numMatch = raw.match(/\b(\d+)\b/);
+    if (numMatch) {
+      count = parseInt(numMatch[1]);
+    } else {
+      for (const [w, n] of Object.entries(wordNums)) {
+        if (raw.includes(w)) { count = n; break; }
+      }
+    }
+
+    const plant = findPlant(raw);
+    if (!plant) {
+      fb.className = 'feedback-err';
+      fb.textContent = `✗ Plant not recognized. Try: tomato, carrot, lettuce, corn, etc.`;
+      return;
+    }
+
+    const result = createRows(count, plant);
+    fb.className = result.ok ? 'feedback-ok' : 'feedback-err';
+    fb.textContent = result.msg;
+    document.getElementById('cmd-input').value = '';
+  }
+
+  // Allow Enter key
+  document.getElementById('cmd-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter') runCommand();
+  });
+
+  // Override clearGrid to also reset nextCol
+  const _clearGrid = clearGrid;
+  clearGrid = function() {
+    _clearGrid();
+    nextCol = 0;
+    document.getElementById('cmd-feedback').textContent = '';
+  };
+
+  function exportPNG() {
+    const canvas = document.createElement('canvas');
+    const cellPx = 20;
+    const padding = 40;
+    canvas.width = COLS * cellPx + padding;
+    canvas.height = ROWS * cellPx + padding;
+    const ctx = canvas.getContext('2d');
+
+    // Background
+    ctx.fillStyle = '#1a1209';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // Title
+    ctx.fillStyle = '#e8c96d';
+    ctx.font = 'bold 14px serif';
+    ctx.fillText('Garden Plan — 40 ft × 25 ft', 10, 18);
+
+    const zoneColors = { bed:'#6b3a2a', path:'#8b7355', lawn:'#3d6b45', water:'#2a5a7c', compost:'#4a3a1a', flowers:'#7a3a5a' };
+    const offsetX = 30, offsetY = 26;
+
+    document.querySelectorAll('.cell').forEach(cell => {
+      const r = +cell.dataset.row, c = +cell.dataset.col;
+      const zone = cell.dataset.zone;
+      const customColor = cell.dataset.customColor || cell.style.background;
+      ctx.fillStyle = customColor && customColor !== '' ? customColor : (zone ? (zoneColors[zone] || '#2a4a30') : '#2a4a30');
+      ctx.fillRect(offsetX + c * cellPx, offsetY + r * cellPx, cellPx, cellPx);
+
+      // Grid lines
+      ctx.strokeStyle = zone ? 'rgba(0,0,0,0.2)' : 'rgba(255,255,255,0.08)';
+      ctx.lineWidth = 0.5;
+      ctx.strokeRect(offsetX + c * cellPx, offsetY + r * cellPx, cellPx, cellPx);
+    });
+
+    // 5ft grid lines
+    ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+    ctx.lineWidth = 1;
+    for (let c = 5; c < COLS; c += 5) {
+      ctx.beginPath();
+      ctx.moveTo(offsetX + c * cellPx, offsetY);
+      ctx.lineTo(offsetX + c * cellPx, offsetY + ROWS * cellPx);
+      ctx.stroke();
+    }
+    for (let r = 5; r < ROWS; r += 5) {
+      ctx.beginPath();
+      ctx.moveTo(offsetX, offsetY + r * cellPx);
+      ctx.lineTo(offsetX + COLS * cellPx, offsetY + r * cellPx);
+      ctx.stroke();
+    }
+
+    // Border
+    ctx.strokeStyle = '#c9a84c';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(offsetX, offsetY, COLS * cellPx, ROWS * cellPx);
+
+    // Rulers
+    ctx.fillStyle = '#c9a84c';
+    ctx.font = '8px monospace';
+    for (let c = 4; c < COLS; c += 5) {
+      ctx.fillText(c+1, offsetX + c * cellPx - 3, offsetY - 4);
+    }
+    for (let r = 4; r < ROWS; r += 5) {
+      ctx.fillText(r+1, 4, offsetY + r * cellPx + cellPx/2 + 3);
+    }
+
+    canvas.toBlob(blob => {
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'garden-plan.png';
+      a.click();
+    });
+  }
+
+  function exportPDF() {
+    window.print();
+  }
+</script>
+
+<style media="print">
+  body { background: white; color: black; }
+  .toolbar, .info-bar, .actions, header p { display: none; }
+  header h1 { color: #4a7c59; }
+  .ruler-cell { color: #4a7c59; }
+  #garden-grid { background: #e8f5e9; }
+  .cell { border-color: rgba(0,0,0,0.1) !important; }
+</style>
+
+</body>
+</html>
