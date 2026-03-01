@@ -440,6 +440,9 @@
 <!-- Actions -->
 <div class="actions">
   <button class="btn-action" onclick="clearGrid()">Clear All</button>
+  <button class="btn-action" onclick="savePlan()">💾 Export</button>
+  <button class="btn-action" onclick="document.getElementById('load-input').click()">📂 Import</button>
+  <input type="file" id="load-input" accept=".garden" style="display:none" onchange="loadPlan(event)">
   <button class="btn-action" onclick="exportPNG()">Export PNG</button>
   <button class="btn-action" onclick="exportPDF()">Export PDF</button>
 </div>
@@ -867,6 +870,153 @@ function exportPNG() {
 }
 
 function exportPDF() { window.print(); }
+
+// ─── .garden save / load (gzipped XML, run-length encoded) ───────────────────
+
+function buildXML() {
+  const cells = document.querySelectorAll('.cell');
+  const lines = [
+    `<?xml version="1.0" encoding="UTF-8"?>`,
+    `<garden width="${COLS}" height="${ROWS}" version="1">`
+  ];
+
+  // Collect all painted cells into a flat map keyed by "x,y"
+  const painted = {};
+  cells.forEach(cell => {
+    const custom = cell.dataset.customColor;
+    const zone   = cell.dataset.zone;
+    if (!custom && !zone) return;
+
+    // Resolve to a plant key or zone name
+    let plant = null;
+    if (custom) {
+      // Reverse-lookup by color
+      plant = Object.keys(PLANTS).find(k => PLANTS[k].color === custom) || 'unknown';
+    } else {
+      plant = zone; // bed, path, lawn, etc.
+    }
+    painted[`${cell.dataset.col},${cell.dataset.row}`] = plant;
+  });
+
+  // Run-length encode row by row (group consecutive same-plant cells in each row)
+  for (let r = 0; r < ROWS; r++) {
+    let runStart = 0;
+    while (runStart < COLS) {
+      const key   = `${runStart},${r}`;
+      const plant = painted[key] || null;
+      if (!plant) { runStart++; continue; }
+
+      // Extend run
+      let len = 1;
+      while (runStart + len < COLS && (painted[`${runStart + len},${r}`] || null) === plant) len++;
+
+      lines.push(`  <span x="${runStart}" y="${r}" len="${len}" plant="${plant}"/>`);
+      runStart += len;
+    }
+  }
+
+  lines.push(`</garden>`);
+  return lines.join('\n');
+}
+
+async function savePlan() {
+  const xml = buildXML();
+  const encoded = new TextEncoder().encode(xml);
+
+  // Gzip via native Compression Streams API
+  const cs = new CompressionStream('gzip');
+  const writer = cs.writable.getWriter();
+  writer.write(encoded);
+  writer.close();
+  const compressed = new Uint8Array(await new Response(cs.readable).arrayBuffer());
+
+  const blob = new Blob([compressed], { type: 'application/octet-stream' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `garden-plan-${COLS}x${ROWS}.garden`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+
+  setFeedback(`✓ Saved garden-plan-${COLS}x${ROWS}.garden (${(compressed.byteLength / 1024).toFixed(1)} KB gzipped)`, 'feedback-ok');
+}
+
+async function loadPlan(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  event.target.value = ''; // reset so same file can be reloaded
+
+  try {
+    const buffer = await file.arrayBuffer();
+
+    // Decompress
+    const ds = new DecompressionStream('gzip');
+    const writer = ds.writable.getWriter();
+    writer.write(new Uint8Array(buffer));
+    writer.close();
+    const xml = await new Response(ds.readable).text();
+
+    // Parse XML
+    const doc = new DOMParser().parseFromString(xml, 'application/xml');
+    const parseErr = doc.querySelector('parsererror');
+    if (parseErr) throw new Error('Invalid XML in .garden file');
+
+    const garden = doc.querySelector('garden');
+    const newCols = parseInt(garden.getAttribute('width'));
+    const newRows = parseInt(garden.getAttribute('height'));
+
+    if (!newCols || !newRows) throw new Error('Missing width/height in .garden file');
+
+    // Resize grid
+    COLS = newCols;
+    ROWS = newRows;
+    document.getElementById('inp-cols').value = COLS;
+    document.getElementById('inp-rows').value = ROWS;
+    buildGrid();
+
+    // Paint spans
+    const cellEls = document.querySelectorAll('.cell');
+    let count = 0;
+
+    doc.querySelectorAll('span').forEach(span => {
+      const x     = parseInt(span.getAttribute('x'));
+      const y     = parseInt(span.getAttribute('y'));
+      const len   = parseInt(span.getAttribute('len'));
+      const plant = span.getAttribute('plant');
+
+      const color = PLANTS[plant] ? PLANTS[plant].color : null;
+
+      for (let i = 0; i < len; i++) {
+        const col = x + i;
+        if (col >= COLS || y >= ROWS) continue;
+        const cell = cellEls[y * COLS + col];
+        if (!cell) continue;
+
+        if (color) {
+          cell.style.background = color;
+          cell.dataset.zone = 'custom';
+          cell.dataset.customColor = color;
+        } else {
+          // Legacy zone (bed, path, etc.)
+          cell.dataset.zone = plant;
+        }
+        count++;
+      }
+    });
+
+    paintedCount = count;
+    document.getElementById('area-display').textContent = `Painted: ${count} sq ft`;
+    setFeedback(`✓ Loaded ${file.name} — ${COLS}×${ROWS} ft, ${count} sq ft painted`, 'feedback-ok');
+
+  } catch (err) {
+    setFeedback(`✗ Failed to load: ${err.message}`, 'feedback-err');
+  }
+}
+
+function setFeedback(msg, cls) {
+  const fb = document.getElementById('cmd-feedback');
+  fb.textContent = msg;
+  fb.className = cls;
+}
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
 buildGrid();
