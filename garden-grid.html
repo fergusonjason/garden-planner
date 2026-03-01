@@ -332,7 +332,11 @@
     border-bottom: 1px solid rgba(255,255,255,0.05);
     vertical-align: middle;
   }
-  .plant-table tr:hover td { background: rgba(255,255,255,0.04); }
+  .plant-table tr.clickable { cursor: pointer; }
+  .plant-table tr.clickable:hover td { background: rgba(201,168,76,0.1); }
+  .plant-table tr.clickable:hover .plant-name { color: var(--accent-light); }
+  .plant-table tr.selected-plant td { background: rgba(201,168,76,0.18) !important; }
+  .plant-table tr.selected-plant .plant-name { color: var(--accent-light); }
   .plant-color-dot {
     width: 10px; height: 10px; border-radius: 50%;
     display: inline-block; margin-right: 6px; vertical-align: middle;
@@ -396,6 +400,13 @@
   <button class="tool-btn" data-zone="erase">
     <span class="swatch" style="background:#2a4a30;border:1px solid #fff3"></span> Erase
   </button>
+</div>
+
+<div id="plant-active-bar" style="display:none; align-items:center; gap:8px; margin-bottom:14px; font-size:0.74rem; letter-spacing:0.08em; color:var(--cream);">
+  <span style="color:var(--accent); font-size:0.62rem; letter-spacing:0.14em; font-weight:700;">DRAWING</span>
+  <span id="plant-active-dot" style="width:12px;height:12px;border-radius:50%;display:inline-block;"></span>
+  <span id="plant-active-name"></span>
+  <button onclick="clearPlantMode()" style="background:none;border:none;color:rgba(245,240,232,0.4);cursor:pointer;font-size:0.72rem;margin-left:4px;letter-spacing:0.06em;" title="Switch back to zone tools">✕ clear</button>
 </div>
 
 <!-- Grid area -->
@@ -468,6 +479,9 @@
 // ─── State ────────────────────────────────────────────────────────────────────
 let COLS = 40, ROWS = 25;
 let currentZone = 'bed';
+let currentPlantColor = null;   // null = zone mode, hex string = plant color mode
+let currentPlantName  = null;
+let selectedPlantRow  = null;   // reference to the highlighted TR
 let isPainting = false;
 let paintedCount = 0;
 let nextCol = 0;
@@ -506,6 +520,8 @@ const tbody = document.getElementById('plant-table-body');
 Object.entries(PLANTS).forEach(([key, p]) => {
   const sep = p.gap - p.rowWidth;
   const tr = document.createElement('tr');
+  tr.className = 'clickable';
+  tr.title = `Click to draw with ${p.aliases[0]} color`;
   tr.innerHTML = `
     <td style="white-space:nowrap">
       <span class="plant-color-dot" style="background:${p.color}"></span>
@@ -516,6 +532,7 @@ Object.entries(PLANTS).forEach(([key, p]) => {
     <td class="plant-notes">${p.notes}</td>
     <td class="plant-aliases">${p.aliases.slice(0,4).join(', ')}</td>
   `;
+  tr.addEventListener('click', () => selectPlant(key, p, tr));
   tbody.appendChild(tr);
 });
 
@@ -526,6 +543,38 @@ function closeModalBackdrop(e) {
   if (e.target === document.getElementById('modal-backdrop')) closeModal();
 }
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+
+function selectPlant(key, plant, tr) {
+  // Update selected row highlight
+  if (selectedPlantRow) selectedPlantRow.classList.remove('selected-plant');
+  selectedPlantRow = tr;
+  tr.classList.add('selected-plant');
+
+  // Set plant color mode
+  currentPlantColor = plant.color;
+  currentPlantName  = plant.aliases[0];
+
+  // Deselect zone toolbar buttons
+  document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
+
+  // Show the active plant bar
+  const bar = document.getElementById('plant-active-bar');
+  bar.style.display = 'flex';
+  document.getElementById('plant-active-dot').style.background = plant.color;
+  document.getElementById('plant-active-name').textContent = plant.aliases[0];
+
+  closeModal();
+}
+
+function clearPlantMode() {
+  currentPlantColor = null;
+  currentPlantName  = null;
+  if (selectedPlantRow) { selectedPlantRow.classList.remove('selected-plant'); selectedPlantRow = null; }
+  document.getElementById('plant-active-bar').style.display = 'none';
+  // Re-select the first zone tool
+  const firstBtn = document.querySelector('.tool-btn[data-zone="bed"]');
+  if (firstBtn) { firstBtn.classList.add('active'); currentZone = 'bed'; }
+}
 
 // ─── Build grid ───────────────────────────────────────────────────────────────
 function buildGrid() {
@@ -615,7 +664,14 @@ document.addEventListener('mouseup', () => isPainting = false);
 
 function paint(cell) {
   const hadColor = cell.dataset.zone || cell.dataset.customColor;
-  if (currentZone === 'erase') {
+
+  if (currentPlantColor) {
+    // Plant color mode — paint with plant color
+    if (!hadColor) paintedCount++;
+    cell.style.background = currentPlantColor;
+    cell.dataset.zone = 'custom';
+    cell.dataset.customColor = currentPlantColor;
+  } else if (currentZone === 'erase') {
     if (hadColor) {
       delete cell.dataset.zone;
       delete cell.dataset.customColor;
@@ -637,6 +693,11 @@ document.getElementById('toolbar').addEventListener('click', e => {
   document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
   currentZone = btn.dataset.zone;
+  // Exit plant color mode
+  currentPlantColor = null;
+  currentPlantName  = null;
+  if (selectedPlantRow) { selectedPlantRow.classList.remove('selected-plant'); selectedPlantRow = null; }
+  document.getElementById('plant-active-bar').style.display = 'none';
 });
 
 // ─── Clear ────────────────────────────────────────────────────────────────────
