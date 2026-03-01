@@ -8,8 +8,6 @@ So I wanted to see if I could use one of the big AI tools to create my garden la
 
 I switched over to Claude and set some basic parameters. I wanted a 40x25 graid, each box represented a square foot, what I meant by a "row".
 
-I thought, man, this is taking awhile.
-
 Then, instead of a PNG or PDF. Claude vibe codes me an entire garden planning app in Javascript. And it's really not bad.
 
-I'm half tempted to throw it in an S3 bucket online, but my AWS-foo is weak.
+.
