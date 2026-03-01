@@ -379,25 +379,25 @@
 
 <!-- Paint toolbar -->
 <div class="toolbar" id="toolbar">
-  <button class="tool-btn active" data-zone="bed">
-    <span class="swatch" style="background:#6b3a2a"></span> Garden Bed
+  <button class="tool-btn active" data-plant="tomato">
+    <span class="swatch" style="background:#b84a3a"></span> Tomatoes
   </button>
-  <button class="tool-btn" data-zone="path">
-    <span class="swatch" style="background:#8b7355"></span> Path
+  <button class="tool-btn" data-plant="cucumber">
+    <span class="swatch" style="background:#4a8a2a"></span> Cucumbers
   </button>
-  <button class="tool-btn" data-zone="lawn">
-    <span class="swatch" style="background:#3d6b45"></span> Lawn
+  <button class="tool-btn" data-plant="corn">
+    <span class="swatch" style="background:#c9a84c"></span> Corn
   </button>
-  <button class="tool-btn" data-zone="water">
-    <span class="swatch" style="background:#2a5a7c"></span> Water Feature
+  <button class="tool-btn" data-plant="bean">
+    <span class="swatch" style="background:#7a9a4a"></span> Green Beans
   </button>
-  <button class="tool-btn" data-zone="compost">
-    <span class="swatch" style="background:#4a3a1a"></span> Compost
+  <button class="tool-btn" data-plant="carrot">
+    <span class="swatch" style="background:#d4782a"></span> Carrots
   </button>
-  <button class="tool-btn" data-zone="flowers">
-    <span class="swatch" style="background:#7a3a5a"></span> Flowers
+  <button class="tool-btn" data-plant="pepper">
+    <span class="swatch" style="background:#c4632a"></span> Peppers
   </button>
-  <button class="tool-btn" data-zone="erase">
+  <button class="tool-btn" data-plant="erase">
     <span class="swatch" style="background:#2a4a30;border:1px solid #fff3"></span> Erase
   </button>
 </div>
@@ -446,12 +446,12 @@
 
 <!-- Legend -->
 <div class="legend">
-  <div class="legend-item"><div class="legend-swatch" style="background:#6b3a2a"></div> Garden Bed</div>
-  <div class="legend-item"><div class="legend-swatch" style="background:#8b7355"></div> Path</div>
-  <div class="legend-item"><div class="legend-swatch" style="background:#3d6b45"></div> Lawn</div>
-  <div class="legend-item"><div class="legend-swatch" style="background:#2a5a7c"></div> Water Feature</div>
-  <div class="legend-item"><div class="legend-swatch" style="background:#4a3a1a"></div> Compost</div>
-  <div class="legend-item"><div class="legend-swatch" style="background:#7a3a5a"></div> Flowers</div>
+  <div class="legend-item"><div class="legend-swatch" style="background:#b84a3a"></div> Tomatoes</div>
+  <div class="legend-item"><div class="legend-swatch" style="background:#4a8a2a"></div> Cucumbers</div>
+  <div class="legend-item"><div class="legend-swatch" style="background:#c9a84c"></div> Corn</div>
+  <div class="legend-item"><div class="legend-swatch" style="background:#7a9a4a"></div> Green Beans</div>
+  <div class="legend-item"><div class="legend-swatch" style="background:#d4782a"></div> Carrots</div>
+  <div class="legend-item"><div class="legend-swatch" style="background:#c4632a"></div> Peppers</div>
 </div>
 
 <!-- Plant Spacing Modal -->
@@ -478,10 +478,10 @@
 <script>
 // ─── State ────────────────────────────────────────────────────────────────────
 let COLS = 40, ROWS = 25;
-let currentZone = 'bed';
-let currentPlantColor = null;   // null = zone mode, hex string = plant color mode
+let currentZone = null;
+let currentPlantColor = null;
 let currentPlantName  = null;
-let selectedPlantRow  = null;   // reference to the highlighted TR
+let selectedPlantRow  = null;
 let isPainting = false;
 let paintedCount = 0;
 let nextCol = 0;
@@ -553,8 +553,9 @@ function selectPlant(key, plant, tr) {
   // Set plant color mode
   currentPlantColor = plant.color;
   currentPlantName  = plant.aliases[0];
+  currentZone = null;
 
-  // Deselect zone toolbar buttons
+  // Deselect all toolbar buttons (popup pick overrides toolbar)
   document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
 
   // Show the active plant bar
@@ -569,11 +570,19 @@ function selectPlant(key, plant, tr) {
 function clearPlantMode() {
   currentPlantColor = null;
   currentPlantName  = null;
+  currentZone = null;
   if (selectedPlantRow) { selectedPlantRow.classList.remove('selected-plant'); selectedPlantRow = null; }
   document.getElementById('plant-active-bar').style.display = 'none';
-  // Re-select the first zone tool
-  const firstBtn = document.querySelector('.tool-btn[data-zone="bed"]');
-  if (firstBtn) { firstBtn.classList.add('active'); currentZone = 'bed'; }
+  // Re-select the first toolbar button (tomatoes)
+  const firstBtn = document.querySelector('.tool-btn[data-plant="tomato"]');
+  if (firstBtn) {
+    firstBtn.classList.add('active');
+    currentPlantColor = PLANTS['tomato'].color;
+    currentPlantName  = 'tomatoes';
+    document.getElementById('plant-active-bar').style.display = 'flex';
+    document.getElementById('plant-active-dot').style.background = PLANTS['tomato'].color;
+    document.getElementById('plant-active-name').textContent = 'tomatoes';
+  }
 }
 
 // ─── Build grid ───────────────────────────────────────────────────────────────
@@ -692,12 +701,31 @@ document.getElementById('toolbar').addEventListener('click', e => {
   if (!btn) return;
   document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
-  currentZone = btn.dataset.zone;
-  // Exit plant color mode
-  currentPlantColor = null;
-  currentPlantName  = null;
+
+  const plantKey = btn.dataset.plant;
+  if (plantKey === 'erase') {
+    currentZone = 'erase';
+    currentPlantColor = null;
+    currentPlantName  = null;
+  } else {
+    const p = PLANTS[plantKey];
+    currentZone = null;
+    currentPlantColor = p.color;
+    currentPlantName  = p.aliases[0];
+  }
+
+  // Sync active bar
+  const bar = document.getElementById('plant-active-bar');
+  if (currentPlantColor) {
+    bar.style.display = 'flex';
+    document.getElementById('plant-active-dot').style.background = currentPlantColor;
+    document.getElementById('plant-active-name').textContent = currentPlantName;
+  } else {
+    bar.style.display = 'none';
+  }
+
+  // Clear modal highlight if user switches via toolbar
   if (selectedPlantRow) { selectedPlantRow.classList.remove('selected-plant'); selectedPlantRow = null; }
-  document.getElementById('plant-active-bar').style.display = 'none';
 });
 
 // ─── Clear ────────────────────────────────────────────────────────────────────
@@ -851,6 +879,13 @@ function exportPDF() { window.print(); }
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
 buildGrid();
+
+// Show initial active plant bar (tomatoes selected by default)
+currentPlantColor = PLANTS['tomato'].color;
+currentPlantName  = 'tomatoes';
+document.getElementById('plant-active-bar').style.display = 'flex';
+document.getElementById('plant-active-dot').style.background = PLANTS['tomato'].color;
+document.getElementById('plant-active-name').textContent = 'tomatoes';
 </script>
 </body>
 </html>
