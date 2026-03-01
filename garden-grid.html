@@ -444,16 +444,6 @@
   <button class="btn-action" onclick="exportPDF()">Export PDF</button>
 </div>
 
-<!-- Legend -->
-<div class="legend">
-  <div class="legend-item"><div class="legend-swatch" style="background:#b84a3a"></div> Tomatoes</div>
-  <div class="legend-item"><div class="legend-swatch" style="background:#4a8a2a"></div> Cucumbers</div>
-  <div class="legend-item"><div class="legend-swatch" style="background:#c9a84c"></div> Corn</div>
-  <div class="legend-item"><div class="legend-swatch" style="background:#7a9a4a"></div> Green Beans</div>
-  <div class="legend-item"><div class="legend-swatch" style="background:#d4782a"></div> Carrots</div>
-  <div class="legend-item"><div class="legend-swatch" style="background:#c4632a"></div> Peppers</div>
-</div>
-
 <!-- Plant Spacing Modal -->
 <div class="modal-backdrop" id="modal-backdrop" onclick="closeModalBackdrop(event)">
   <div class="modal">
@@ -488,31 +478,32 @@ let nextCol = 0;
 
 // ─── Plant database ───────────────────────────────────────────────────────────
 const PLANTS = {
-  tomato:      { rowWidth:2, gap:4, color:'#b84a3a', notes:'Stake or cage',         aliases:['tomatoes','tomato'] },
-  pepper:      { rowWidth:1, gap:2, color:'#c4632a', notes:'Full sun',               aliases:['peppers','pepper','capsicum'] },
-  carrot:      { rowWidth:1, gap:1, color:'#d4782a', notes:'Deep loose soil',        aliases:['carrots','carrot'] },
-  lettuce:     { rowWidth:1, gap:1, color:'#5a9e4a', notes:'Partial shade ok',       aliases:['lettuce','salad'] },
-  kale:        { rowWidth:1, gap:2, color:'#3a7a3a', notes:'Cold-hardy',             aliases:['kale'] },
-  spinach:     { rowWidth:1, gap:1, color:'#4a8a4a', notes:'Cool season',            aliases:['spinach'] },
-  cucumber:    { rowWidth:2, gap:3, color:'#4a8a2a', notes:'Trellis saves space',    aliases:['cucumbers','cucumber'] },
-  zucchini:    { rowWidth:3, gap:4, color:'#3a7a2a', notes:'Sprawling habit',        aliases:['zucchini','courgette','squash'] },
-  corn:        { rowWidth:1, gap:2, color:'#c9a84c', notes:'Plant in blocks',        aliases:['corn','maize','sweetcorn'] },
   bean:        { rowWidth:1, gap:2, color:'#7a9a4a', notes:'Bush or pole types',     aliases:['beans','bean','green bean','green beans'] },
-  pea:         { rowWidth:1, gap:2, color:'#6a9a5a', notes:'Cool season, trellis',   aliases:['peas','pea'] },
-  onion:       { rowWidth:1, gap:1, color:'#b89a7a', notes:'From sets or seed',      aliases:['onions','onion'] },
+  beet:        { rowWidth:1, gap:1, color:'#8a2a5a', notes:'Thin to 3 in apart',     aliases:['beets','beet','beetroot'] },
+  broccoli:    { rowWidth:2, gap:2, color:'#3a6a4a', notes:'Side shoots continue',   aliases:['broccoli'] },
+  cabbage:     { rowWidth:2, gap:2, color:'#4a7a5a', notes:'Large heads',            aliases:['cabbage','cabbages'] },
+  carrot:      { rowWidth:1, gap:1, color:'#d4782a', notes:'Deep loose soil',        aliases:['carrots','carrot'] },
+  cauliflower: { rowWidth:2, gap:2, color:'#c8c8a0', notes:'Blanch heads',           aliases:['cauliflower'] },
+  corn:        { rowWidth:1, gap:2, color:'#c9a84c', notes:'Plant in blocks',        aliases:['corn','maize','sweetcorn'] },
+  cowpea:      { rowWidth:1, gap:2, color:'#8faa5a', notes:'Heat-tolerant legume',   aliases:['cowpeas','cowpea','black-eyed peas','black eyed peas','southern peas'] },
+  cucumber:    { rowWidth:2, gap:3, color:'#4a8a2a', notes:'Trellis saves space',    aliases:['cucumbers','cucumber'] },
+  eggplant:    { rowWidth:2, gap:3, color:'#6a3a8a', notes:'Needs heat',             aliases:['eggplant','aubergine'] },
   garlic:      { rowWidth:1, gap:1, color:'#c8b898', notes:'Fall planting',          aliases:['garlic'] },
+  herb:        { rowWidth:1, gap:1, color:'#7aba8a', notes:'Mixed herb rows',        aliases:['herbs','herb','basil','parsley','cilantro','mint','thyme','oregano','rosemary','dill'] },
+  kale:        { rowWidth:1, gap:2, color:'#3a7a3a', notes:'Cold-hardy',             aliases:['kale'] },
+  lettuce:     { rowWidth:1, gap:1, color:'#5a9e4a', notes:'Partial shade ok',       aliases:['lettuce','salad'] },
+  melon:       { rowWidth:3, gap:5, color:'#8aba4a', notes:'Needs warm season',      aliases:['melons','melon','watermelon','cantaloupe'] },
+  onion:       { rowWidth:1, gap:1, color:'#b89a7a', notes:'From sets or seed',      aliases:['onions','onion'] },
+  pea:         { rowWidth:1, gap:2, color:'#6a9a5a', notes:'Cool season, trellis',   aliases:['peas','pea'] },
+  pepper:      { rowWidth:1, gap:2, color:'#c4632a', notes:'Full sun',               aliases:['peppers','pepper','capsicum'] },
   potato:      { rowWidth:1, gap:3, color:'#a89060', notes:'Hilled rows',            aliases:['potatoes','potato'] },
+  pumpkin:     { rowWidth:4, gap:6, color:'#d06a20', notes:'Very large sprawl',      aliases:['pumpkins','pumpkin'] },
+  radish:      { rowWidth:1, gap:1, color:'#c84a7a', notes:'30-day quick crop',      aliases:['radishes','radish'] },
+  spinach:     { rowWidth:1, gap:1, color:'#4a8a4a', notes:'Cool season',            aliases:['spinach'] },
   strawberry:  { rowWidth:1, gap:2, color:'#c84a5a', notes:'Matted or hill system',  aliases:['strawberries','strawberry'] },
   sunflower:   { rowWidth:1, gap:2, color:'#e8c020', notes:'Tall — plant at N end',  aliases:['sunflowers','sunflower'] },
-  herb:        { rowWidth:1, gap:1, color:'#7aba8a', notes:'Mixed herb rows',        aliases:['herbs','herb','basil','parsley','cilantro','mint','thyme','oregano','rosemary','dill'] },
-  radish:      { rowWidth:1, gap:1, color:'#c84a7a', notes:'30-day quick crop',      aliases:['radishes','radish'] },
-  beet:        { rowWidth:1, gap:1, color:'#8a2a5a', notes:'Thin to 3 in apart',     aliases:['beets','beet','beetroot'] },
-  cabbage:     { rowWidth:2, gap:2, color:'#4a7a5a', notes:'Large heads',            aliases:['cabbage','cabbages'] },
-  broccoli:    { rowWidth:2, gap:2, color:'#3a6a4a', notes:'Side shoots continue',   aliases:['broccoli'] },
-  cauliflower: { rowWidth:2, gap:2, color:'#c8c8a0', notes:'Blanch heads',           aliases:['cauliflower'] },
-  melon:       { rowWidth:3, gap:5, color:'#8aba4a', notes:'Needs warm season',      aliases:['melons','melon','watermelon','cantaloupe'] },
-  pumpkin:     { rowWidth:4, gap:6, color:'#d06a20', notes:'Very large sprawl',      aliases:['pumpkins','pumpkin'] },
-  eggplant:    { rowWidth:2, gap:3, color:'#6a3a8a', notes:'Needs heat',             aliases:['eggplant','aubergine'] },
+  tomato:      { rowWidth:2, gap:4, color:'#b84a3a', notes:'Stake or cage',          aliases:['tomatoes','tomato'] },
+  zucchini:    { rowWidth:3, gap:4, color:'#3a7a2a', notes:'Sprawling habit',        aliases:['zucchini','courgette','squash'] },
 };
 
 // ─── Build modal table ────────────────────────────────────────────────────────
