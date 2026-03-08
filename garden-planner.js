@@ -158,7 +158,7 @@ function buildGrid() {
 
   paintedCount = 0;
   nextCol = 0;
-  document.getElementById('area-display').textContent = 'Painted: 0 sq ft';
+  document.getElementById('area-display').textContent = 'Planted: 0 sq ft';
   document.getElementById('cmd-feedback').textContent = '';
   updateSubtitle();
 }
@@ -200,7 +200,7 @@ function eraseCell(cell) {
     delete cell.dataset.customColor;
     cell.style.background = '';
     paintedCount = Math.max(0, paintedCount - 1);
-    document.getElementById('area-display').textContent = `Painted: ${paintedCount} sq ft`;
+    document.getElementById('area-display').textContent = `Planted: ${paintedCount} sq ft`;
   }
 }
 
@@ -225,7 +225,7 @@ function paint(cell) {
     delete cell.dataset.customColor;
     cell.style.background = '';
   }
-  document.getElementById('area-display').textContent = `Painted: ${paintedCount} sq ft`;
+  document.getElementById('area-display').textContent = `Planted: ${paintedCount} sq ft`;
 }
 
 document.getElementById('toolbar').addEventListener('click', e => {
@@ -268,7 +268,7 @@ function clearGrid() {
   });
   paintedCount = 0;
   nextCol = 0;
-  document.getElementById('area-display').textContent = 'Painted: 0 sq ft';
+  document.getElementById('area-display').textContent = 'Planted: 0 sq ft';
   document.getElementById('cmd-feedback').textContent = '';
 }
 
@@ -306,7 +306,7 @@ function createRows(count, plant) {
   const startedAt = nextCol + 1;
   nextCol += totalWidth;
   const sep = plant.gap - plant.rowWidth;
-  document.getElementById('area-display').textContent = `Painted: ${paintedCount} sq ft`;
+  document.getElementById('area-display').textContent = `Planted: ${paintedCount} sq ft`;
   return {
     ok: true,
     msg: `\u2713 Planted ${count} row${count > 1 ? 's' : ''} of ${plant.aliases[0]} \u2014 ${plant.rowWidth}ft wide, ${sep}ft gap \u2014 X=${startedAt}\u2013${nextCol}ft. Next free: X=${nextCol + 1}ft.`
@@ -523,8 +523,8 @@ async function loadPlan(event) {
     });
 
     paintedCount = count;
-    document.getElementById('area-display').textContent = `Painted: ${count} sq ft`;
-    setFeedback(`\u2713 Loaded ${file.name} \u2014 ${COLS}\u00d7${ROWS} ft, ${count} sq ft painted`, 'feedback-ok');
+    document.getElementById('area-display').textContent = `Planted: ${count} sq ft`;
+    setFeedback(`\u2713 Loaded ${file.name} \u2014 ${COLS}\u00d7${ROWS} ft, ${count} sq ft planted`, 'feedback-ok');
 
   } catch (err) {
     setFeedback(`\u2717 Failed to load: ${err.message}`, 'feedback-err');
