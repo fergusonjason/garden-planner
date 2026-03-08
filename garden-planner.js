@@ -281,15 +281,16 @@ function findPlant(text) {
   return null;
 }
 
-function createRows(count, plant) {
+function createRows(count, plant, startAt = null) {
+  const start = startAt !== null ? startAt : nextCol;
   const totalWidth = plant.rowWidth + (count - 1) * plant.gap;
-  if (nextCol + totalWidth > COLS) {
-    return { ok:false, msg:`\u2717 Not enough space \u2014 only ${COLS - nextCol} ft remaining on X axis.` };
+  if (start + totalWidth > COLS) {
+    return { ok:false, msg:`\u2717 Not enough space \u2014 only ${COLS - start} ft remaining from X=${start + 1}.` };
   }
 
   const cells = document.querySelectorAll('.cell');
   for (let i = 0; i < count; i++) {
-    const startCol = nextCol + i * plant.gap;
+    const startCol = start + i * plant.gap;
     for (let row = 0; row < ROWS; row++) {
       for (let w = 0; w < plant.rowWidth; w++) {
         const col = startCol + w;
@@ -303,13 +304,15 @@ function createRows(count, plant) {
     }
   }
 
-  const startedAt = nextCol + 1;
-  nextCol += totalWidth;
+  const endCol = start + totalWidth;
+  // Only advance nextCol if we planted at or past the current cursor
+  if (endCol > nextCol) nextCol = endCol;
+
   const sep = plant.gap - plant.rowWidth;
   document.getElementById('area-display').textContent = `Planted: ${paintedCount} sq ft`;
   return {
     ok: true,
-    msg: `\u2713 Planted ${count} row${count > 1 ? 's' : ''} of ${plant.aliases[0]} \u2014 ${plant.rowWidth}ft wide, ${sep}ft gap \u2014 X=${startedAt}\u2013${nextCol}ft. Next free: X=${nextCol + 1}ft.`
+    msg: `\u2713 Planted ${count} row${count > 1 ? 's' : ''} of ${plant.aliases[0]} \u2014 ${plant.rowWidth}ft wide, ${sep}ft gap \u2014 X=${start + 1}\u2013${endCol}ft. Next free: X=${nextCol + 1}ft.`
   };
 }
 
@@ -318,6 +321,7 @@ function runCommand() {
   const fb  = document.getElementById('cmd-feedback');
   if (!raw) return;
 
+  // Parse count
   const wordNums = { a:1, an:1, one:1, two:2, three:3, four:4, five:5, six:6, seven:7, eight:8, nine:9, ten:10 };
   let count = 1;
   const numMatch = raw.match(/\b(\d+)\b/);
@@ -329,6 +333,19 @@ function runCommand() {
     }
   }
 
+  // Parse optional start position — "at 10", "starting at 10", "from 10", "at x=10", "at x 10"
+  let startAt = null;
+  const startMatch = raw.match(/(?:starting\s+at|start(?:ing)?\s+(?:at\s+)?|from\s+|at\s+)(?:x\s*[=:]?\s*)?(\d+)/);
+  if (startMatch) {
+    startAt = parseInt(startMatch[1]) - 1; // convert 1-based user input to 0-based index
+    if (startAt < 0) startAt = 0;
+    if (startAt >= COLS) {
+      fb.className = 'feedback-err';
+      fb.textContent = `\u2717 Start position X=${startAt + 1} is outside the garden (max X=${COLS}).`;
+      return;
+    }
+  }
+
   const plant = findPlant(raw);
   if (!plant) {
     fb.className = 'feedback-err';
@@ -336,7 +353,7 @@ function runCommand() {
     return;
   }
 
-  const result = createRows(count, plant);
+  const result = createRows(count, plant, startAt);
   fb.className = result.ok ? 'feedback-ok' : 'feedback-err';
   fb.textContent = result.msg;
   document.getElementById('cmd-input').value = '';
