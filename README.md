@@ -1,13 +1,14 @@
 # Garden Planner
-This is pretty much a vibe-coded garden planner app. But, hear me out.. I didn't just go into Claude and say create an app.
+
+This started as a Claude-generated garden planning application, I'll be deslopping it as I adapt it
+to fit my needs.
 
 ## How This Came About
 
-So I wanted to see if I could use one of the big AI tools to create my garden layout, mainly so I could output as PDF or PNG. I was using Copilot 
-(kinda against GPT at this point (guess I'm weird for not liking Terminators and mass surveillance).
+This started as me trying to tell Claude to generate me a PDF of a grid garden layout, Claude
+generated an javascript-plotting application instead. I didn't actually mean to vibe code a
+garden-planning application.
 
-I switched over to Claude and set some basic parameters. I wanted a 40x25 graid, each box represented a square foot, what I meant by a "row".
+## Future plans
 
-Then, instead of a PNG or PDF. Claude vibe codes me an entire garden planning app in Javascript. And it's really not bad.
-
-.
+I'm going to convert this over to an Angular application since that's my usual framework.
