@@ -76,7 +76,6 @@
 
 <!-- Info bar -->
 <div class="info-bar">
-  <span id="coord-display">Hover a cell to see coordinates</span>
   <span id="area-display">Painted: 0 sq ft</span>
 </div>
 
@@ -104,19 +103,20 @@
   <div class="modal">
     <button class="modal-close" onclick="closeModal()">✕</button>
     <h2>Plant Spacing Guide</h2>
-    <p class="modal-sub">Recommended row widths &amp; separations — used automatically by the PLANT command</p>
+    <p class="modal-sub">Click any plant to select it as your drawing color</p>
     <table class="plant-table">
       <thead>
         <tr>
           <th>Plant</th>
-          <th>Row Width</th>
-          <th>Gap Between Rows</th>
+          <th>Row Width *</th>
+          <th>Space Between Rows *</th>
           <th>Notes</th>
           <th>Command keywords</th>
         </tr>
       </thead>
       <tbody id="plant-table-body"></tbody>
     </table>
+    <p style="margin-top:14px; font-size:0.65rem; color:rgba(245,240,232,0.35); letter-spacing:0.06em;">* Values are recommendations based on common gardening practice and may vary by variety, soil, and climate.</p>
   </div>
 </div>
 
