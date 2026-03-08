@@ -347,3 +347,16 @@ header h1 {
   #garden-grid { background: #e8f5e9; }
   .cell { border-color: rgba(0,0,0,0.1) !important; }
 }
+
+/* ── Footer ── */
+footer {
+  margin-top: 28px;
+  font-size: 0.68rem;
+  color: rgba(245,240,232,0.35);
+  letter-spacing: 0.08em;
+}
+footer a {
+  color: rgba(201,168,76,0.5);
+  text-decoration: none;
+}
+footer a:hover { color: var(--accent); }

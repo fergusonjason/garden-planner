@@ -1,0 +1,126 @@
+<header>
+  <h1>Garden Planner</h1>
+  <p id="header-subtitle">{{ cols }} ft × {{ rows }} ft · {{ (cols * rows) | number }} sq ft · 1 cell = 1 sq ft</p>
+</header>
+
+<!-- Dimension controls -->
+<div class="dim-bar">
+  <label>Width</label>
+  <input type="number" id="inp-cols" [(ngModel)]="colsInput" min="5" max="200" (keydown.enter)="applyDimensions()">
+  <span class="dim-unit">ft</span>
+  <span class="dim-sep">×</span>
+  <label>Height</label>
+  <input type="number" id="inp-rows" [(ngModel)]="rowsInput" min="5" max="200" (keydown.enter)="applyDimensions()">
+  <span class="dim-unit">ft</span>
+  <button class="btn-action" (click)="applyDimensions()" style="margin-left:6px;">Apply</button>
+  <span [style.display]="dimWarning ? 'inline' : 'none'" style="font-size:0.68rem;color:#e07070;">⚠ Applying will clear the grid</span>
+</div>
+
+<!-- Paint toolbar -->
+<div class="toolbar" id="toolbar">
+  @for (btn of toolbarPlants; track btn.key) {
+    <button class="tool-btn"
+            [class.active]="activePlantKey === btn.key"
+            (click)="selectToolbarPlant(btn.key)">
+      <span class="swatch" [style.background]="btn.color"></span> {{ btn.label }}
+    </button>
+  }
+  <button class="tool-btn" [class.active]="activePlantKey === 'erase'" (click)="selectToolbarPlant('erase')">
+    <span class="swatch" style="background:#2a4a30;border:1px solid #fff3"></span> Erase
+  </button>
+</div>
+
+<!-- Active plant indicator -->
+<div id="plant-active-bar" [style.display]="activePlantColor ? 'flex' : 'none'"
+     style="align-items:center; gap:8px; margin-bottom:14px; font-size:0.74rem; letter-spacing:0.08em; color:var(--cream);">
+  <span style="color:var(--accent); font-size:0.62rem; letter-spacing:0.14em; font-weight:700;">DRAWING</span>
+  <span [style.background]="activePlantColor" style="width:12px;height:12px;border-radius:50%;display:inline-block;"></span>
+  <span>{{ activePlantName }}</span>
+  <button (click)="clearPlantMode()" style="background:none;border:none;color:rgba(245,240,232,0.4);cursor:pointer;font-size:0.72rem;margin-left:4px;letter-spacing:0.06em;">✕ clear</button>
+</div>
+
+<!-- Grid area -->
+<div id="grid-area">
+  <div style="display:flex;">
+    <div style="width:28px"></div>
+    <div class="ruler-x" id="ruler-x"></div>
+  </div>
+  <div style="display:flex;">
+    <div class="ruler-y" id="ruler-y"></div>
+    <div class="grid-wrapper">
+      <div id="garden-grid"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Info bar -->
+<div class="info-bar">
+  <span id="area-display">Planted: 0 sq ft</span>
+</div>
+
+<!-- Command bar -->
+<div class="command-bar">
+  <div class="cmd-label">PLANT</div>
+  <input id="cmd-input" type="text"
+         placeholder='e.g. "3 rows of tomatoes" · "corn from 5 to 20" · "horizontal beans between 3 and 15"'
+         (keydown.enter)="runCommand()" />
+  <button class="btn-action" (click)="runCommand()">↵ Plant</button>
+  <button class="btn-action ghost" (click)="openModal()">📋 Spacing Guide</button>
+</div>
+<div id="cmd-feedback"></div>
+
+<!-- Actions -->
+<div class="actions">
+  <button class="btn-action" (click)="clearGrid()">Clear All</button>
+  <button class="btn-action" (click)="savePlan()">💾 Export</button>
+  <button class="btn-action" (click)="loadInput.click()">📂 Import</button>
+  <input #loadInput type="file" accept=".garden" style="display:none" (change)="loadPlan($event)">
+  <button class="btn-action" (click)="exportPNG()">Export PNG</button>
+  <button class="btn-action" (click)="exportPDF()">Export PDF</button>
+</div>
+
+<!-- Plant Spacing Modal -->
+<div class="modal-backdrop" [class.open]="modalOpen" (click)="closeModalBackdrop($event)">
+  <div class="modal">
+    <button class="modal-close" (click)="closeModal()">✕</button>
+    <h2>Plant Spacing Guide</h2>
+    <p class="modal-sub">Click any plant to select it as your drawing color</p>
+    <table class="plant-table">
+      <thead>
+        <tr>
+          <th>Plant</th>
+          <th>Row Width *</th>
+          <th>Space Between Rows *</th>
+          <th>Notes</th>
+          <th>Command keywords</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (entry of plantEntries; track entry.key) {
+          <tr class="clickable"
+              [class.selected-plant]="selectedModalKey === entry.key"
+              [title]="'Click to draw with ' + entry.aliases[0] + ' color'"
+              (click)="selectPlantFromModal(entry.key)">
+            <td style="white-space:nowrap">
+              <span class="plant-color-dot" [style.background]="entry.color"></span>
+              <span class="plant-name">{{ entry.aliases[0] }}</span>
+            </td>
+            <td class="plant-num">{{ entry.rowWidth }} ft</td>
+            <td class="plant-num">{{ entry.gap - entry.rowWidth }} ft</td>
+            <td class="plant-notes">{{ entry.notes }}</td>
+            <td class="plant-aliases">{{ entry.aliases.slice(0, 4).join(', ') }}</td>
+          </tr>
+        }
+      </tbody>
+    </table>
+    <p style="margin-top:14px; font-size:0.65rem; color:rgba(245,240,232,0.35); letter-spacing:0.06em;">
+      * Values are recommendations based on common gardening practice and may vary by variety, soil, and climate.
+    </p>
+  </div>
+</div>
+
+<footer>
+  <a href="https://github.com/fergusonjason/garden-planner" target="_blank" rel="noopener">
+    ⌥ source code on github
+  </a>
+</footer>
