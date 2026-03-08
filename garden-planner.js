@@ -158,6 +158,7 @@ function buildGrid() {
 
   paintedCount = 0;
   nextCol = 0;
+  nextRow = 0;
   document.getElementById('area-display').textContent = 'Planted: 0 sq ft';
   document.getElementById('cmd-feedback').textContent = '';
   updateSubtitle();
@@ -268,6 +269,7 @@ function clearGrid() {
   });
   paintedCount = 0;
   nextCol = 0;
+  nextRow = 0;
   document.getElementById('area-display').textContent = 'Planted: 0 sq ft';
   document.getElementById('cmd-feedback').textContent = '';
 }
@@ -281,21 +283,44 @@ function findPlant(text) {
   return null;
 }
 
-function createRows(count, plant, startAt = null) {
-  const start = startAt !== null ? startAt : nextCol;
-  const totalWidth = plant.rowWidth + (count - 1) * plant.gap;
-  if (start + totalWidth > COLS) {
-    return { ok:false, msg:`\u2717 Not enough space \u2014 only ${COLS - start} ft remaining from X=${start + 1}.` };
+// nextRow tracks the next available Y position for horizontal rows
+let nextRow = 0;
+
+function createRows(count, plant, startAt = null, orientation = 'vertical', endAt = null) {
+  const isVert = orientation === 'vertical';
+  const cells  = document.querySelectorAll('.cell');
+  const sep    = plant.gap - plant.rowWidth;
+  const limit  = isVert ? COLS : ROWS;
+
+  const start = startAt !== null ? startAt : (isVert ? nextCol : nextRow);
+
+  // If an end position is given, calculate how many rows fit in the range
+  let resolvedCount = count;
+  if (endAt !== null) {
+    const span = endAt - start; // span in ft (0-based end is exclusive)
+    if (span <= 0) {
+      return { ok:false, msg:`\u2717 End position must be greater than start position.` };
+    }
+    // Fit as many rows as possible: first row takes rowWidth, each additional takes gap
+    resolvedCount = Math.floor((span - plant.rowWidth) / plant.gap) + 1;
+    if (resolvedCount < 1) resolvedCount = 1;
   }
 
-  const cells = document.querySelectorAll('.cell');
-  for (let i = 0; i < count; i++) {
-    const startCol = start + i * plant.gap;
-    for (let row = 0; row < ROWS; row++) {
+  const totalSpan = plant.rowWidth + (resolvedCount - 1) * plant.gap;
+
+  if (start + totalSpan > limit) {
+    return { ok:false, msg:`\u2717 Not enough space \u2014 only ${limit - start} ft remaining from ${isVert ? 'X' : 'Y'}=${start + 1}.` };
+  }
+
+  for (let i = 0; i < resolvedCount; i++) {
+    const lineStart = start + i * plant.gap;
+    for (let cross = 0; cross < (isVert ? ROWS : COLS); cross++) {
       for (let w = 0; w < plant.rowWidth; w++) {
-        const col = startCol + w;
-        if (col >= COLS) continue;
-        const cell = cells[row * COLS + col];
+        const along = lineStart + w;
+        if (along >= limit) continue;
+        const cellIdx = isVert ? (cross * COLS + along) : (along * COLS + cross);
+        const cell = cells[cellIdx];
+        if (!cell) continue;
         if (!cell.dataset.customColor && !cell.dataset.zone) paintedCount++;
         cell.style.background = plant.color;
         cell.dataset.zone = 'custom';
@@ -304,15 +329,16 @@ function createRows(count, plant, startAt = null) {
     }
   }
 
-  const endCol = start + totalWidth;
-  // Only advance nextCol if we planted at or past the current cursor
-  if (endCol > nextCol) nextCol = endCol;
+  const endPos = start + totalSpan;
+  if (isVert) { if (endPos > nextCol) nextCol = endPos; }
+  else         { if (endPos > nextRow) nextRow = endPos; }
 
-  const sep = plant.gap - plant.rowWidth;
   document.getElementById('area-display').textContent = `Planted: ${paintedCount} sq ft`;
+  const axis = isVert ? 'X' : 'Y';
+  const nextFree = isVert ? nextCol : nextRow;
   return {
     ok: true,
-    msg: `\u2713 Planted ${count} row${count > 1 ? 's' : ''} of ${plant.aliases[0]} \u2014 ${plant.rowWidth}ft wide, ${sep}ft gap \u2014 X=${start + 1}\u2013${endCol}ft. Next free: X=${nextCol + 1}ft.`
+    msg: `\u2713 Planted ${resolvedCount} ${orientation} row${resolvedCount > 1 ? 's' : ''} of ${plant.aliases[0]} \u2014 ${plant.rowWidth}ft wide, ${sep}ft gap \u2014 ${axis}=${start + 1}\u2013${endPos}ft. Next free: ${axis}=${nextFree + 1}ft.`
   };
 }
 
@@ -321,28 +347,58 @@ function runCommand() {
   const fb  = document.getElementById('cmd-feedback');
   if (!raw) return;
 
-  // Parse count
+  // Detect orientation — default vertical
+  const isHoriz  = /\b(horizontal|horiz|across|east.?west|\bew\b)\b/.test(raw);
+  const orientation = isHoriz ? 'horizontal' : 'vertical';
+  const limit    = isHoriz ? ROWS : COLS;
+
+  // Parse "from X to Y" or "between X and Y" — both numbers at once
+  let startAt = null, endAt = null;
+  const rangeMatch = raw.match(/(?:from\s+|between\s+)(?:[xy]\s*[=:]?\s*)?(\d+)\s+(?:to|and)\s+(?:[xy]\s*[=:]?\s*)?(\d+)/);
+  if (rangeMatch) {
+    startAt = Math.max(0, parseInt(rangeMatch[1]) - 1);
+    endAt   = Math.min(limit, parseInt(rangeMatch[2])); // end is 1-based inclusive → 0-based exclusive
+    if (startAt >= endAt) {
+      fb.className = 'feedback-err';
+      fb.textContent = `\u2717 End position must be greater than start position.`;
+      return;
+    }
+  } else {
+    // Parse start-only: "at 10", "starting at 10", "from 10", "at x=10"
+    const startMatch = raw.match(/(?:starting\s+at|start(?:ing)?\s+(?:at\s+)?|from\s+|at\s+)(?:[xy]\s*[=:]?\s*)?(\d+)/);
+    if (startMatch) {
+      startAt = Math.max(0, parseInt(startMatch[1]) - 1);
+      if (startAt >= limit) {
+        fb.className = 'feedback-err';
+        fb.textContent = `\u2717 Start position ${startAt + 1} is outside the garden (max ${limit}).`;
+        return;
+      }
+    }
+
+    // Parse end-only: "ending at 20", "end at 20", "to 20", "through 20", "up to 20"
+    const endMatch = raw.match(/(?:ending\s+at|end(?:ing)?\s+(?:at\s+)?|through\s+|up\s+to\s+|to\s+)(?:[xy]\s*[=:]?\s*)?(\d+)/);
+    if (endMatch) {
+      endAt = Math.min(limit, parseInt(endMatch[1]));
+    }
+  }
+
+  // Strip position phrases before parsing count
+  let rawForCount = raw;
+  if (rangeMatch) rawForCount = rawForCount.replace(rangeMatch[0], '');
+  else {
+    rawForCount = rawForCount.replace(/(?:starting\s+at|start(?:ing)?\s+(?:at\s+)?|from\s+|at\s+)(?:[xy]\s*[=:]?\s*)?\d+/, '');
+    rawForCount = rawForCount.replace(/(?:ending\s+at|end(?:ing)?\s+(?:at\s+)?|through\s+|up\s+to\s+|to\s+)(?:[xy]\s*[=:]?\s*)?\d+/, '');
+  }
+
+  // Parse count (ignored when endAt is set — count is derived from range)
   const wordNums = { a:1, an:1, one:1, two:2, three:3, four:4, five:5, six:6, seven:7, eight:8, nine:9, ten:10 };
   let count = 1;
-  const numMatch = raw.match(/\b(\d+)\b/);
+  const numMatch = rawForCount.match(/\b(\d+)\b/);
   if (numMatch) {
     count = parseInt(numMatch[1]);
   } else {
     for (const [w, n] of Object.entries(wordNums)) {
-      if (new RegExp(`\\b${w}\\b`).test(raw)) { count = n; break; }
-    }
-  }
-
-  // Parse optional start position — "at 10", "starting at 10", "from 10", "at x=10", "at x 10"
-  let startAt = null;
-  const startMatch = raw.match(/(?:starting\s+at|start(?:ing)?\s+(?:at\s+)?|from\s+|at\s+)(?:x\s*[=:]?\s*)?(\d+)/);
-  if (startMatch) {
-    startAt = parseInt(startMatch[1]) - 1; // convert 1-based user input to 0-based index
-    if (startAt < 0) startAt = 0;
-    if (startAt >= COLS) {
-      fb.className = 'feedback-err';
-      fb.textContent = `\u2717 Start position X=${startAt + 1} is outside the garden (max X=${COLS}).`;
-      return;
+      if (new RegExp(`\\b${w}\\b`).test(rawForCount)) { count = n; break; }
     }
   }
 
@@ -353,7 +409,7 @@ function runCommand() {
     return;
   }
 
-  const result = createRows(count, plant, startAt);
+  const result = createRows(count, plant, startAt, orientation, endAt);
   fb.className = result.ok ? 'feedback-ok' : 'feedback-err';
   fb.textContent = result.msg;
   document.getElementById('cmd-input').value = '';
