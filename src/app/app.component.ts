@@ -38,6 +38,7 @@ export class AppComponent implements AfterViewInit, OnDestroy {
   straightAxis: 'row' | 'col' | null = null;
 
   // ─── Modal ──────────────────────────────────────────────────────────────────
+  clearDialogOpen = false;
   modalOpen = false;
 
   // ─── Context menu ────────────────────────────────────────────────────────────
@@ -72,12 +73,13 @@ export class AppComponent implements AfterViewInit, OnDestroy {
     this.straightAxis    = null;
   };
 
-  private keydownListener = (e: KeyboardEvent) => {
-    if (e.key === 'Escape') {
-      this.closeModal();
-      this.closeCtxMenu();
-    }
-  };
+private keydownListener = (e: KeyboardEvent) => {
+  if (e.key === 'Escape') {
+    this.closeModal();
+    this.closeCtxMenu();
+    this.clearDialogOpen = false;
+  }
+};
 
   private docClickListener = (e: MouseEvent) => {
     const menu = document.querySelector('.ctx-menu');
@@ -308,20 +310,34 @@ export class AppComponent implements AfterViewInit, OnDestroy {
   }
 
   // ─── Clear ──────────────────────────────────────────────────────────────────
-  clearGrid(): void {
-    if (!confirm('Clear the entire garden? This cannot be undone.')) return;
-    document.querySelectorAll('.cell').forEach((c: Element) => {
-      const el = c as HTMLElement;
-      delete el.dataset['zone'];
-      delete el.dataset['customColor'];
-      el.style.background = '';
-    });
-    this.paintedCount = 0;
-    this.nextCol = 0;
-    this.nextRow = 0;
-    this.setAreaDisplay();
-    this.setFeedback('', '');
+clearGrid(): void {
+  this.clearDialogOpen = true;
+}
+
+closeClearDialog(e: MouseEvent): void {
+  if ((e.target as HTMLElement).classList.contains('dialog-backdrop')) {
+    this.clearDialogOpen = false;
   }
+}
+
+cancelClear(): void {
+  this.clearDialogOpen = false;
+}
+
+confirmClear(): void {
+  this.clearDialogOpen = false;
+  document.querySelectorAll('.cell').forEach((c: Element) => {
+    const el = c as HTMLElement;
+    delete el.dataset['zone'];
+    delete el.dataset['customColor'];
+    el.style.background = '';
+  });
+  this.paintedCount = 0;
+  this.nextCol = 0;
+  this.nextRow = 0;
+  this.setAreaDisplay();
+  this.setFeedback('', '');
+}
 
   // ─── Modal ──────────────────────────────────────────────────────────────────
   openModal(): void  { this.modalOpen = true; }

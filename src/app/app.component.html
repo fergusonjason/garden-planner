@@ -144,6 +144,18 @@
   <div class="ctx-item" (click)="ctxExportPDF()">Export PDF</div>
 </div>
 
+<!-- Clear confirmation dialog -->
+<div class="dialog-backdrop" [class.open]="clearDialogOpen" (click)="closeClearDialog($event)">
+  <div class="dialog">
+    <h3>Clear Garden</h3>
+    <p>This will erase the entire garden and cannot be undone.</p>
+<div class="dialog-actions">
+  <button class="btn-action btn-danger" (click)="confirmClear()">Clear All</button>
+  <button class="btn-action ghost" (click)="cancelClear()">Cancel</button>
+</div>
+  </div>
+</div>
+
 <footer>
   <a href="https://github.com/fergusonjason/garden-planner" target="_blank" rel="noopener">
     ⌥ source code on github
