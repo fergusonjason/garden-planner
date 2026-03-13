@@ -445,3 +445,54 @@ footer a:hover { color: var(--accent); }
   box-shadow: 0 6px 32px rgba(0,0,0,0.6);
 }
 .ctx-has-sub:hover .ctx-submenu { display: block; }
+
+/* ── Confirmation dialog ── */
+.dialog-backdrop {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(10,6,2,0.82);
+  z-index: 150;
+  align-items: center;
+  justify-content: center;
+}
+.dialog-backdrop.open { display: flex; }
+
+.dialog {
+  background: #2a1a0e;
+  border: 2px solid var(--accent);
+  border-radius: 6px;
+  padding: 28px 32px;
+  width: 340px;
+  box-shadow: 0 8px 60px rgba(0,0,0,0.65);
+}
+
+.dialog h3 {
+  font-family: 'Playfair Display', serif;
+  font-size: 1.2rem;
+  color: var(--accent-light);
+  margin-bottom: 10px;
+}
+
+.dialog p {
+  font-size: 0.78rem;
+  color: rgba(245,240,232,0.65);
+  letter-spacing: 0.04em;
+  line-height: 1.6;
+  margin-bottom: 24px;
+}
+
+.dialog-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+.btn-danger {
+  border-color: #c05050;
+  color: #c05050;
+}
+.btn-danger:hover {
+  background: #c05050;
+  color: var(--cream);
+}
