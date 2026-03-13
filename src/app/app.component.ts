@@ -96,119 +96,11 @@ export class AppComponent implements AfterViewInit, OnDestroy {
   }
 
   // ─── Grid ───────────────────────────────────────────────────────────────────
-  // buildGrid(): void {
-  //   const grid   = document.getElementById('garden-grid')!;
-  //   const rulerX = document.getElementById('ruler-x')!;
-  //   const rulerY = document.getElementById('ruler-y')!;
-
-  //   grid.innerHTML = '';
-  //   rulerX.innerHTML = '';
-  //   rulerY.innerHTML = '';
-
-  //   grid.style.gridTemplateColumns = `repeat(${this.cols}, var(--cell-size))`;
-  //   grid.style.gridTemplateRows    = `repeat(${this.rows}, var(--cell-size))`;
-
-  //   for (let c = 0; c < this.cols; c++) {
-  //     const d = document.createElement('div');
-  //     d.className = 'ruler-cell' + ((c + 1) % 5 === 0 ? ' labeled' : '');
-  //     d.textContent = (c + 1) % 5 === 0 ? String(c + 1) : '';
-  //     rulerX.appendChild(d);
-  //   }
-
-  //   for (let r = 0; r < this.rows; r++) {
-  //     const d = document.createElement('div');
-  //     d.className = 'ruler-cell' + ((r + 1) % 5 === 0 ? ' labeled' : '');
-  //     d.textContent = (r + 1) % 5 === 0 ? String(r + 1) : '';
-  //     rulerY.appendChild(d);
-  //   }
-
-  //   for (let r = 0; r < this.rows; r++) {
-  //     for (let c = 0; c < this.cols; c++) {
-  //       const cell = document.createElement('div');
-  //       cell.className = 'cell';
-  //       if ((c + 1) % 5 === 0 && c + 1 < this.cols) cell.classList.add('mark-col');
-  //       if ((r + 1) % 5 === 0 && r + 1 < this.rows) cell.classList.add('mark-row');
-  //       cell.dataset['row'] = String(r);
-  //       cell.dataset['col'] = String(c);
-
-  //       grid.addEventListener('mousemove', (e: MouseEvent) => {
-  //         if (!this.isPainting) return;
-  //         const rect     = grid.getBoundingClientRect();
-  //         const cellSize = parseFloat(
-  //           getComputedStyle(document.documentElement).getPropertyValue('--cell-size')
-  //         );
-  //         let c = Math.floor((e.clientX - rect.left) / cellSize);
-  //         let r = Math.floor((e.clientY - rect.top)  / cellSize);
-  //         c = Math.max(0, Math.min(this.cols - 1, c));
-  //         r = Math.max(0, Math.min(this.rows - 1, r));
-
-  //         if (this.straightLockRow !== null && this.straightAxis === null) {
-  //           const dr = Math.abs(r - this.straightLockRow!);
-  //           const dc = Math.abs(c - this.straightLockCol!);
-  //           if (dr === 0 && dc === 0) return;
-  //           this.straightAxis = dr >= dc ? 'row' : 'col';
-  //         }
-
-  //         if (this.straightAxis === 'row') r = this.straightLockRow!;
-  //         if (this.straightAxis === 'col') c = this.straightLockCol!;
-
-  //         const cells = grid.querySelectorAll('.cell');
-  //         const cell  = cells[r * this.cols + c] as HTMLElement;
-  //         if (cell) this.paintCell(cell);
-  //       });
-
-  //       // cell.addEventListener('mouseenter', () => {
-  //       //   if (this.isPainting) {
-  //       //     if (this.straightLockRow !== null || this.straightLockCol !== null) {
-  //       //       if (this.straightAxis === null) {
-  //       //         const dr = Math.abs(r - this.straightLockRow!);
-  //       //         const dc = Math.abs(c - this.straightLockCol!);
-  //       //         if (dr === 0 && dc === 0) return;
-  //       //         this.straightAxis = dr >= dc ? 'row' : 'col';
-  //       //       }
-  //       //       if (this.straightAxis === 'row' && r !== this.straightLockRow) return;
-  //       //       if (this.straightAxis === 'col' && c !== this.straightLockCol) return;
-  //       //     }
-  //       //     this.paintCell(cell);
-  //       //   }
-  //       // });
-
-  //       // cell.addEventListener('mousedown', (e: MouseEvent) => {
-  //       //   e.preventDefault();
-  //       //   this.isPainting = true;
-  //       //   if (e.ctrlKey || e.metaKey) {
-  //       //     this.straightLockRow = r;
-  //       //     this.straightLockCol = c;
-  //       //     this.straightAxis    = null;
-  //       //   } else {
-  //       //     this.straightLockRow = null;
-  //       //     this.straightLockCol = null;
-  //       //     this.straightAxis    = null;
-  //       //   }
-  //       //   this.paintCell(cell);
-  //       // });
-
-  //       cell.addEventListener('contextmenu', (e) => {
-  //         e.preventDefault();
-  //         this.eraseCell(cell);
-  //       });
-  //       grid.appendChild(cell);
-  //     }
-  //   }
-
-  //   this.paintedCount = 0;
-  //   this.nextCol = 0;
-  //   this.nextRow = 0;
-  //   this.setAreaDisplay();
-  //   this.setFeedback('', '');
-  // }
-
 buildGrid(): void {
   const grid   = document.getElementById('garden-grid')!;
   const rulerX = document.getElementById('ruler-x')!;
   const rulerY = document.getElementById('ruler-y')!;
 
-  // Remove stale mousemove listener before rebuilding
   if (this.gridMouseMoveListener) {
     grid.removeEventListener('mousemove', this.gridMouseMoveListener);
     this.gridMouseMoveListener = null;
@@ -243,15 +135,33 @@ buildGrid(): void {
       if ((r + 1) % 5 === 0 && r + 1 < this.rows) cell.classList.add('mark-row');
       cell.dataset['row'] = String(r);
       cell.dataset['col'] = String(c);
-      cell.addEventListener('mouseenter', () => {
-        // Free-draw only — Ctrl+drag is handled by the grid mousemove listener
-        if (this.isPainting && this.straightLockRow === null) {
-          this.paintCell(cell);
+
+      cell.addEventListener('mouseenter', (e: MouseEvent) => {
+        if (!this.isPainting) return;
+        if (e.shiftKey) {
+          this.eraseCell(cell);
+          return;
         }
+        if (this.straightLockRow !== null) {
+          if (this.straightAxis === null) {
+            const dr = Math.abs(r - this.straightLockRow!);
+            const dc = Math.abs(c - this.straightLockCol!);
+            if (dr === 0 && dc === 0) return;
+            this.straightAxis = dc >= dr ? 'row' : 'col';
+          }
+          if (this.straightAxis === 'row' && r !== this.straightLockRow) return;
+          if (this.straightAxis === 'col' && c !== this.straightLockCol) return;
+        }
+        this.paintCell(cell);
       });
+
       cell.addEventListener('mousedown', (e: MouseEvent) => {
         e.preventDefault();
         this.isPainting = true;
+        if (e.shiftKey) {
+          this.eraseCell(cell);
+          return;
+        }
         if (e.ctrlKey || e.metaKey) {
           this.straightLockRow = r;
           this.straightLockCol = c;
@@ -263,15 +173,11 @@ buildGrid(): void {
         }
         this.paintCell(cell);
       });
-      cell.addEventListener('contextmenu', (e: MouseEvent) => {
-        e.preventDefault();
-        this.eraseCell(cell);
-      });
+
       grid.appendChild(cell);
     }
   }
 
-  // Single mousemove on the grid wrapper handles Ctrl+drag straight-line painting
   this.gridMouseMoveListener = (e: MouseEvent) => {
     if (!this.isPainting || this.straightLockRow === null) return;
 
@@ -279,21 +185,18 @@ buildGrid(): void {
     const cellSize = parseFloat(
       getComputedStyle(document.documentElement).getPropertyValue('--cell-size')
     );
-    let c = Math.floor((e.clientX - rect.left)  / cellSize);
-    let r = Math.floor((e.clientY - rect.top) / cellSize);
+    let c = Math.floor((e.clientX - rect.left) / cellSize);
+    let r = Math.floor((e.clientY - rect.top)  / cellSize);
     c = Math.max(0, Math.min(this.cols - 1, c));
     r = Math.max(0, Math.min(this.rows - 1, r));
 
-    // Determine axis on first movement away from the start cell
     if (this.straightAxis === null) {
       const dr = Math.abs(r - this.straightLockRow!);
       const dc = Math.abs(c - this.straightLockCol!);
       if (dr === 0 && dc === 0) return;
-      this.straightAxis = dr >= dc ? 'col' : 'row';
-      // this.straightAxis = dr >= dc ? 'row' : 'col';
+      this.straightAxis = dc >= dr ? 'row' : 'col';
     }
 
-    // Lock to the axis — pointer position on the other axis is ignored
     if (this.straightAxis === 'row') r = this.straightLockRow!;
     if (this.straightAxis === 'col') c = this.straightLockCol!;
 
@@ -309,6 +212,8 @@ buildGrid(): void {
   this.setAreaDisplay();
   this.setFeedback('', '');
 }
+
+
 
   // ─── Paint ──────────────────────────────────────────────────────────────────
   selectToolbarPlant(key: string): void {
