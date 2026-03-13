@@ -1,45 +1,10 @@
-import { Component, AfterViewInit, OnDestroy, ViewEncapsulation } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { AfterViewInit, Component, OnDestroy, ViewEncapsulation } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 
-// ─── Plant definition ─────────────────────────────────────────────────────────
-interface PlantDef {
-  key: string;
-  rowWidth: number;
-  gap: number;
-  color: string;
-  notes: string;
-  aliases: string[];
-}
+import { PLANT_MAP } from './contants/plant-map-constants';
+import { PlantDef } from './models/plant-def';
 
-const PLANT_MAP: Record<string, Omit<PlantDef, 'key'>> = {
-  bean:        { rowWidth:1, gap:2, color:'#7a9a4a', notes:'Bush or pole types',     aliases:['beans','bean','green bean','green beans'] },
-  beet:        { rowWidth:1, gap:1, color:'#8a2a5a', notes:'Thin to 3 in apart',     aliases:['beets','beet','beetroot'] },
-  broccoli:    { rowWidth:2, gap:2, color:'#3a6a4a', notes:'Side shoots continue',   aliases:['broccoli'] },
-  cabbage:     { rowWidth:2, gap:2, color:'#4a7a5a', notes:'Large heads',            aliases:['cabbage','cabbages'] },
-  carrot:      { rowWidth:1, gap:1, color:'#d4782a', notes:'Deep loose soil',        aliases:['carrots','carrot'] },
-  cauliflower: { rowWidth:2, gap:2, color:'#c8c8a0', notes:'Blanch heads',           aliases:['cauliflower'] },
-  corn:        { rowWidth:1, gap:2, color:'#c9a84c', notes:'Plant in blocks',        aliases:['corn','maize','sweetcorn'] },
-  cowpea:      { rowWidth:1, gap:2, color:'#8faa5a', notes:'Heat-tolerant legume',   aliases:['cowpeas','cowpea','black-eyed peas','black eyed peas','southern peas'] },
-  cucumber:    { rowWidth:2, gap:3, color:'#4a8a2a', notes:'Trellis saves space',    aliases:['cucumbers','cucumber'] },
-  eggplant:    { rowWidth:2, gap:3, color:'#6a3a8a', notes:'Needs heat',             aliases:['eggplant','aubergine'] },
-  garlic:      { rowWidth:1, gap:1, color:'#c8b898', notes:'Fall planting',          aliases:['garlic'] },
-  herb:        { rowWidth:1, gap:1, color:'#7aba8a', notes:'Mixed herb rows',        aliases:['herbs','herb','basil','parsley','cilantro','mint','thyme','oregano','rosemary','dill'] },
-  kale:        { rowWidth:1, gap:2, color:'#3a7a3a', notes:'Cold-hardy',             aliases:['kale'] },
-  lettuce:     { rowWidth:1, gap:1, color:'#5a9e4a', notes:'Partial shade ok',       aliases:['lettuce','salad'] },
-  melon:       { rowWidth:3, gap:5, color:'#8aba4a', notes:'Needs warm season',      aliases:['melons','melon','watermelon','cantaloupe'] },
-  onion:       { rowWidth:1, gap:1, color:'#b89a7a', notes:'From sets or seed',      aliases:['onions','onion'] },
-  pea:         { rowWidth:1, gap:2, color:'#6a9a5a', notes:'Cool season, trellis',   aliases:['peas','pea'] },
-  pepper:      { rowWidth:1, gap:2, color:'#c4632a', notes:'Full sun',               aliases:['peppers','pepper','capsicum'] },
-  potato:      { rowWidth:1, gap:3, color:'#a89060', notes:'Hilled rows',            aliases:['potatoes','potato'] },
-  pumpkin:     { rowWidth:4, gap:6, color:'#d06a20', notes:'Very large sprawl',      aliases:['pumpkins','pumpkin'] },
-  radish:      { rowWidth:1, gap:1, color:'#c84a7a', notes:'30-day quick crop',      aliases:['radishes','radish'] },
-  spinach:     { rowWidth:1, gap:1, color:'#4a8a4a', notes:'Cool season',            aliases:['spinach'] },
-  strawberry:  { rowWidth:1, gap:2, color:'#c84a5a', notes:'Matted or hill system',  aliases:['strawberries','strawberry'] },
-  sunflower:   { rowWidth:1, gap:2, color:'#e8c020', notes:'Tall — plant at N end',  aliases:['sunflowers','sunflower'] },
-  tomato:      { rowWidth:2, gap:4, color:'#b84a3a', notes:'Stake or cage',          aliases:['tomatoes','tomato'] },
-  zucchini:    { rowWidth:3, gap:4, color:'#3a7a2a', notes:'Sprawling habit',        aliases:['zucchini','courgette','squash'] },
-};
 
 @Component({
   selector: 'app-root',
@@ -68,6 +33,10 @@ export class AppComponent implements AfterViewInit, OnDestroy {
   paintedCount = 0;
   nextCol = 0;
   nextRow = 0;
+  straightLockRow: number | null = null;
+  straightLockCol: number | null = null;
+  straightAxis: 'row' | 'col' | null = null;
+
 
   // ─── Modal ──────────────────────────────────────────────────────────────────
   modalOpen = false;
@@ -84,8 +53,16 @@ export class AppComponent implements AfterViewInit, OnDestroy {
     { key: 'pepper',   label: 'Peppers',     color: PLANT_MAP['pepper'].color },
   ];
 
-  private mouseUpListener = () => { this.isPainting = false; };
+  private mouseUpListener = () => {
+    this.isPainting      = false;
+    this.straightLockRow = null;
+    this.straightLockCol = null;
+    this.straightAxis    = null;
+  };
+
   private keydownListener = (e: KeyboardEvent) => { if (e.key === 'Escape') this.closeModal(); };
+
+  private gridMouseMoveListener: ((e: MouseEvent) => void) | null = null;
 
   // ─── Lifecycle ───────────────────────────────────────────────────────────────
   ngAfterViewInit(): void {
@@ -119,62 +96,219 @@ export class AppComponent implements AfterViewInit, OnDestroy {
   }
 
   // ─── Grid ───────────────────────────────────────────────────────────────────
-  buildGrid(): void {
-    const grid   = document.getElementById('garden-grid')!;
-    const rulerX = document.getElementById('ruler-x')!;
-    const rulerY = document.getElementById('ruler-y')!;
+  // buildGrid(): void {
+  //   const grid   = document.getElementById('garden-grid')!;
+  //   const rulerX = document.getElementById('ruler-x')!;
+  //   const rulerY = document.getElementById('ruler-y')!;
 
-    grid.innerHTML = '';
-    rulerX.innerHTML = '';
-    rulerY.innerHTML = '';
+  //   grid.innerHTML = '';
+  //   rulerX.innerHTML = '';
+  //   rulerY.innerHTML = '';
 
-    grid.style.gridTemplateColumns = `repeat(${this.cols}, var(--cell-size))`;
-    grid.style.gridTemplateRows    = `repeat(${this.rows}, var(--cell-size))`;
+  //   grid.style.gridTemplateColumns = `repeat(${this.cols}, var(--cell-size))`;
+  //   grid.style.gridTemplateRows    = `repeat(${this.rows}, var(--cell-size))`;
 
-    for (let c = 0; c < this.cols; c++) {
-      const d = document.createElement('div');
-      d.className = 'ruler-cell' + ((c + 1) % 5 === 0 ? ' labeled' : '');
-      d.textContent = (c + 1) % 5 === 0 ? String(c + 1) : '';
-      rulerX.appendChild(d);
-    }
+  //   for (let c = 0; c < this.cols; c++) {
+  //     const d = document.createElement('div');
+  //     d.className = 'ruler-cell' + ((c + 1) % 5 === 0 ? ' labeled' : '');
+  //     d.textContent = (c + 1) % 5 === 0 ? String(c + 1) : '';
+  //     rulerX.appendChild(d);
+  //   }
 
-    for (let r = 0; r < this.rows; r++) {
-      const d = document.createElement('div');
-      d.className = 'ruler-cell' + ((r + 1) % 5 === 0 ? ' labeled' : '');
-      d.textContent = (r + 1) % 5 === 0 ? String(r + 1) : '';
-      rulerY.appendChild(d);
-    }
+  //   for (let r = 0; r < this.rows; r++) {
+  //     const d = document.createElement('div');
+  //     d.className = 'ruler-cell' + ((r + 1) % 5 === 0 ? ' labeled' : '');
+  //     d.textContent = (r + 1) % 5 === 0 ? String(r + 1) : '';
+  //     rulerY.appendChild(d);
+  //   }
 
-    for (let r = 0; r < this.rows; r++) {
-      for (let c = 0; c < this.cols; c++) {
-        const cell = document.createElement('div');
-        cell.className = 'cell';
-        if ((c + 1) % 5 === 0 && c + 1 < this.cols) cell.classList.add('mark-col');
-        if ((r + 1) % 5 === 0 && r + 1 < this.rows) cell.classList.add('mark-row');
-        cell.dataset['row'] = String(r);
-        cell.dataset['col'] = String(c);
-        cell.addEventListener('mouseenter', () => {
-          if (this.isPainting) this.paintCell(cell);
-        });
-        cell.addEventListener('mousedown', (e) => {
-          e.preventDefault();
-          this.isPainting = true;
-          this.paintCell(cell);
-        });
-        cell.addEventListener('contextmenu', (e) => {
-          e.preventDefault();
-          this.eraseCell(cell);
-        });
-        grid.appendChild(cell);
-      }
-    }
+  //   for (let r = 0; r < this.rows; r++) {
+  //     for (let c = 0; c < this.cols; c++) {
+  //       const cell = document.createElement('div');
+  //       cell.className = 'cell';
+  //       if ((c + 1) % 5 === 0 && c + 1 < this.cols) cell.classList.add('mark-col');
+  //       if ((r + 1) % 5 === 0 && r + 1 < this.rows) cell.classList.add('mark-row');
+  //       cell.dataset['row'] = String(r);
+  //       cell.dataset['col'] = String(c);
 
-    this.paintedCount = 0;
-    this.nextCol = 0;
-    this.nextRow = 0;
-    this.setAreaDisplay();
-    this.setFeedback('', '');
+  //       grid.addEventListener('mousemove', (e: MouseEvent) => {
+  //         if (!this.isPainting) return;
+  //         const rect     = grid.getBoundingClientRect();
+  //         const cellSize = parseFloat(
+  //           getComputedStyle(document.documentElement).getPropertyValue('--cell-size')
+  //         );
+  //         let c = Math.floor((e.clientX - rect.left) / cellSize);
+  //         let r = Math.floor((e.clientY - rect.top)  / cellSize);
+  //         c = Math.max(0, Math.min(this.cols - 1, c));
+  //         r = Math.max(0, Math.min(this.rows - 1, r));
+
+  //         if (this.straightLockRow !== null && this.straightAxis === null) {
+  //           const dr = Math.abs(r - this.straightLockRow!);
+  //           const dc = Math.abs(c - this.straightLockCol!);
+  //           if (dr === 0 && dc === 0) return;
+  //           this.straightAxis = dr >= dc ? 'row' : 'col';
+  //         }
+
+  //         if (this.straightAxis === 'row') r = this.straightLockRow!;
+  //         if (this.straightAxis === 'col') c = this.straightLockCol!;
+
+  //         const cells = grid.querySelectorAll('.cell');
+  //         const cell  = cells[r * this.cols + c] as HTMLElement;
+  //         if (cell) this.paintCell(cell);
+  //       });
+
+  //       // cell.addEventListener('mouseenter', () => {
+  //       //   if (this.isPainting) {
+  //       //     if (this.straightLockRow !== null || this.straightLockCol !== null) {
+  //       //       if (this.straightAxis === null) {
+  //       //         const dr = Math.abs(r - this.straightLockRow!);
+  //       //         const dc = Math.abs(c - this.straightLockCol!);
+  //       //         if (dr === 0 && dc === 0) return;
+  //       //         this.straightAxis = dr >= dc ? 'row' : 'col';
+  //       //       }
+  //       //       if (this.straightAxis === 'row' && r !== this.straightLockRow) return;
+  //       //       if (this.straightAxis === 'col' && c !== this.straightLockCol) return;
+  //       //     }
+  //       //     this.paintCell(cell);
+  //       //   }
+  //       // });
+
+  //       // cell.addEventListener('mousedown', (e: MouseEvent) => {
+  //       //   e.preventDefault();
+  //       //   this.isPainting = true;
+  //       //   if (e.ctrlKey || e.metaKey) {
+  //       //     this.straightLockRow = r;
+  //       //     this.straightLockCol = c;
+  //       //     this.straightAxis    = null;
+  //       //   } else {
+  //       //     this.straightLockRow = null;
+  //       //     this.straightLockCol = null;
+  //       //     this.straightAxis    = null;
+  //       //   }
+  //       //   this.paintCell(cell);
+  //       // });
+
+  //       cell.addEventListener('contextmenu', (e) => {
+  //         e.preventDefault();
+  //         this.eraseCell(cell);
+  //       });
+  //       grid.appendChild(cell);
+  //     }
+  //   }
+
+  //   this.paintedCount = 0;
+  //   this.nextCol = 0;
+  //   this.nextRow = 0;
+  //   this.setAreaDisplay();
+  //   this.setFeedback('', '');
+  // }
+
+buildGrid(): void {
+  const grid   = document.getElementById('garden-grid')!;
+  const rulerX = document.getElementById('ruler-x')!;
+  const rulerY = document.getElementById('ruler-y')!;
+
+  // Remove stale mousemove listener before rebuilding
+  if (this.gridMouseMoveListener) {
+    grid.removeEventListener('mousemove', this.gridMouseMoveListener);
+    this.gridMouseMoveListener = null;
   }
+
+  grid.innerHTML = '';
+  rulerX.innerHTML = '';
+  rulerY.innerHTML = '';
+
+  grid.style.gridTemplateColumns = `repeat(${this.cols}, var(--cell-size))`;
+  grid.style.gridTemplateRows    = `repeat(${this.rows}, var(--cell-size))`;
+
+  for (let c = 0; c < this.cols; c++) {
+    const d = document.createElement('div');
+    d.className = 'ruler-cell' + ((c + 1) % 5 === 0 ? ' labeled' : '');
+    d.textContent = (c + 1) % 5 === 0 ? String(c + 1) : '';
+    rulerX.appendChild(d);
+  }
+
+  for (let r = 0; r < this.rows; r++) {
+    const d = document.createElement('div');
+    d.className = 'ruler-cell' + ((r + 1) % 5 === 0 ? ' labeled' : '');
+    d.textContent = (r + 1) % 5 === 0 ? String(r + 1) : '';
+    rulerY.appendChild(d);
+  }
+
+  for (let r = 0; r < this.rows; r++) {
+    for (let c = 0; c < this.cols; c++) {
+      const cell = document.createElement('div');
+      cell.className = 'cell';
+      if ((c + 1) % 5 === 0 && c + 1 < this.cols) cell.classList.add('mark-col');
+      if ((r + 1) % 5 === 0 && r + 1 < this.rows) cell.classList.add('mark-row');
+      cell.dataset['row'] = String(r);
+      cell.dataset['col'] = String(c);
+      cell.addEventListener('mouseenter', () => {
+        // Free-draw only — Ctrl+drag is handled by the grid mousemove listener
+        if (this.isPainting && this.straightLockRow === null) {
+          this.paintCell(cell);
+        }
+      });
+      cell.addEventListener('mousedown', (e: MouseEvent) => {
+        e.preventDefault();
+        this.isPainting = true;
+        if (e.ctrlKey || e.metaKey) {
+          this.straightLockRow = r;
+          this.straightLockCol = c;
+          this.straightAxis    = null;
+        } else {
+          this.straightLockRow = null;
+          this.straightLockCol = null;
+          this.straightAxis    = null;
+        }
+        this.paintCell(cell);
+      });
+      cell.addEventListener('contextmenu', (e: MouseEvent) => {
+        e.preventDefault();
+        this.eraseCell(cell);
+      });
+      grid.appendChild(cell);
+    }
+  }
+
+  // Single mousemove on the grid wrapper handles Ctrl+drag straight-line painting
+  this.gridMouseMoveListener = (e: MouseEvent) => {
+    if (!this.isPainting || this.straightLockRow === null) return;
+
+    const rect     = grid.getBoundingClientRect();
+    const cellSize = parseFloat(
+      getComputedStyle(document.documentElement).getPropertyValue('--cell-size')
+    );
+    let c = Math.floor((e.clientX - rect.left)  / cellSize);
+    let r = Math.floor((e.clientY - rect.top) / cellSize);
+    c = Math.max(0, Math.min(this.cols - 1, c));
+    r = Math.max(0, Math.min(this.rows - 1, r));
+
+    // Determine axis on first movement away from the start cell
+    if (this.straightAxis === null) {
+      const dr = Math.abs(r - this.straightLockRow!);
+      const dc = Math.abs(c - this.straightLockCol!);
+      if (dr === 0 && dc === 0) return;
+      this.straightAxis = dr >= dc ? 'col' : 'row';
+      // this.straightAxis = dr >= dc ? 'row' : 'col';
+    }
+
+    // Lock to the axis — pointer position on the other axis is ignored
+    if (this.straightAxis === 'row') r = this.straightLockRow!;
+    if (this.straightAxis === 'col') c = this.straightLockCol!;
+
+    const cells = grid.querySelectorAll('.cell');
+    const cell  = cells[r * this.cols + c] as HTMLElement;
+    if (cell) this.paintCell(cell);
+  };
+  grid.addEventListener('mousemove', this.gridMouseMoveListener);
+
+  this.paintedCount = 0;
+  this.nextCol = 0;
+  this.nextRow = 0;
+  this.setAreaDisplay();
+  this.setFeedback('', '');
+}
 
   // ─── Paint ──────────────────────────────────────────────────────────────────
   selectToolbarPlant(key: string): void {
