@@ -1,9 +1,10 @@
 import { CommonModule } from '@angular/common';
-import { AfterViewInit, Component, OnDestroy, ViewEncapsulation } from '@angular/core';
+import { AfterViewInit, Component, inject, OnDestroy, ViewEncapsulation } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 
 import { PLANT_MAP } from './contants/plant-map-constants';
 import { PlantDef } from './models/plant-def';
+import { ExportService } from './services/export-service';
 
 
 @Component({
@@ -15,6 +16,8 @@ import { PlantDef } from './models/plant-def';
   encapsulation: ViewEncapsulation.None
 })
 export class AppComponent implements AfterViewInit, OnDestroy {
+
+  private exportService:ExportService = inject(ExportService);
 
   // ─── Grid dimensions ────────────────────────────────────────────────────────
   cols = 40;
@@ -356,8 +359,8 @@ confirmClear(): void {
 
   closeCtxMenu(): void { this.ctxMenuOpen = false; }
 
-  ctxExportPNG(): void { this.closeCtxMenu(); this.exportPNG(); }
-  ctxExportPDF(): void { this.closeCtxMenu(); this.exportPDF(); }
+  ctxExportPNG(): void { this.closeCtxMenu(); this.exportService.exportPNG(this.cols, this.rows); }
+  ctxExportPDF(): void { this.closeCtxMenu(); this.exportService.exportPDF(); }
 
   selectQuickPick(key: string): void {
     this.selectToolbarPlant(key);
@@ -486,55 +489,9 @@ confirmClear(): void {
     input.value = '';
   }
 
-  // ─── Export PNG ──────────────────────────────────────────────────────────────
-  exportPNG(): void {
-    const cellPx = 18, padLeft = 32, padTop = 30;
-    const canvas  = document.createElement('canvas');
-    canvas.width  = this.cols * cellPx + padLeft + 4;
-    canvas.height = this.rows * cellPx + padTop  + 4;
-    const ctx = canvas.getContext('2d')!;
 
-    ctx.fillStyle = '#1a1209';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.fillStyle = '#e8c96d';
-    ctx.font = 'bold 13px serif';
-    ctx.fillText(`Garden Plan — ${this.cols} ft × ${this.rows} ft`, 10, 17);
 
-    const zoneColors: Record<string, string> = { bed:'#6b3a2a', path:'#8b7355', lawn:'#3d6b45', water:'#2a5a7c', compost:'#4a3a1a', flowers:'#7a3a5a' };
 
-    document.querySelectorAll('.cell').forEach((c: Element) => {
-      const cell   = c as HTMLElement;
-      const r      = +cell.dataset['row']!;
-      const col    = +cell.dataset['col']!;
-      const custom = cell.dataset['customColor'] || cell.style.background;
-      const zone   = cell.dataset['zone'];
-      ctx.fillStyle = (custom && custom !== '') ? custom : (zone ? (zoneColors[zone] || '#2a4a30') : '#2a4a30');
-      ctx.fillRect(padLeft + col * cellPx, padTop + r * cellPx, cellPx, cellPx);
-      ctx.strokeStyle = 'rgba(0,0,0,0.15)';
-      ctx.lineWidth   = 0.4;
-      ctx.strokeRect(padLeft + col * cellPx, padTop + r * cellPx, cellPx, cellPx);
-    });
-
-    ctx.strokeStyle = 'rgba(255,255,255,0.25)';
-    ctx.lineWidth = 1;
-    for (let c = 5; c < this.cols; c += 5) { ctx.beginPath(); ctx.moveTo(padLeft + c * cellPx, padTop); ctx.lineTo(padLeft + c * cellPx, padTop + this.rows * cellPx); ctx.stroke(); }
-    for (let r = 5; r < this.rows; r += 5) { ctx.beginPath(); ctx.moveTo(padLeft, padTop + r * cellPx); ctx.lineTo(padLeft + this.cols * cellPx, padTop + r * cellPx); ctx.stroke(); }
-
-    ctx.strokeStyle = '#c9a84c'; ctx.lineWidth = 2;
-    ctx.strokeRect(padLeft, padTop, this.cols * cellPx, this.rows * cellPx);
-    ctx.fillStyle = '#c9a84c'; ctx.font = '7px monospace';
-    for (let c = 4; c < this.cols; c += 5) ctx.fillText(String(c + 1), padLeft + c * cellPx - 4, padTop - 3);
-    for (let r = 4; r < this.rows; r += 5) ctx.fillText(String(r + 1), 4, padTop + r * cellPx + cellPx / 2 + 3);
-
-    canvas.toBlob(blob => {
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob!);
-      a.download = `garden-plan-${this.cols}x${this.rows}.png`;
-      a.click();
-    });
-  }
-
-  exportPDF(): void { window.print(); }
 
   // ─── .garden export / import ─────────────────────────────────────────────────
   private buildXML(): string {
