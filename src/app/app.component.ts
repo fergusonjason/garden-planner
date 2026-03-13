@@ -37,9 +37,13 @@ export class AppComponent implements AfterViewInit, OnDestroy {
   straightLockCol: number | null = null;
   straightAxis: 'row' | 'col' | null = null;
 
-
   // ─── Modal ──────────────────────────────────────────────────────────────────
   modalOpen = false;
+
+  // ─── Context menu ────────────────────────────────────────────────────────────
+  ctxMenuOpen = false;
+  ctxMenuX    = 0;
+  ctxMenuY    = 0;
 
   // ─── Plant data exposed to template ─────────────────────────────────────────
   readonly plantEntries: PlantDef[] = Object.entries(PLANT_MAP).map(([key, p]) => ({ key, ...p }));
@@ -53,6 +57,14 @@ export class AppComponent implements AfterViewInit, OnDestroy {
     { key: 'pepper',   label: 'Peppers',     color: PLANT_MAP['pepper'].color },
   ];
 
+  readonly quickPickPlants = [
+    { key: 'corn',     color: PLANT_MAP['corn'].color },
+    { key: 'cucumber', color: PLANT_MAP['cucumber'].color },
+    { key: 'bean',     color: PLANT_MAP['bean'].color },
+    { key: 'tomato',   color: PLANT_MAP['tomato'].color },
+  ];
+
+  // ─── Listeners ───────────────────────────────────────────────────────────────
   private mouseUpListener = () => {
     this.isPainting      = false;
     this.straightLockRow = null;
@@ -60,7 +72,19 @@ export class AppComponent implements AfterViewInit, OnDestroy {
     this.straightAxis    = null;
   };
 
-  private keydownListener = (e: KeyboardEvent) => { if (e.key === 'Escape') this.closeModal(); };
+  private keydownListener = (e: KeyboardEvent) => {
+    if (e.key === 'Escape') {
+      this.closeModal();
+      this.closeCtxMenu();
+    }
+  };
+
+  private docClickListener = (e: MouseEvent) => {
+    const menu = document.querySelector('.ctx-menu');
+    if (menu && !menu.contains(e.target as Node)) {
+      this.closeCtxMenu();
+    }
+  };
 
   private gridMouseMoveListener: ((e: MouseEvent) => void) | null = null;
 
@@ -68,6 +92,7 @@ export class AppComponent implements AfterViewInit, OnDestroy {
   ngAfterViewInit(): void {
     document.addEventListener('mouseup', this.mouseUpListener);
     document.addEventListener('keydown', this.keydownListener);
+    document.addEventListener('click', this.docClickListener);
 
     ['inp-cols', 'inp-rows'].forEach(id => {
       document.getElementById(id)?.addEventListener('input', () => { this.dimWarning = true; });
@@ -83,6 +108,7 @@ export class AppComponent implements AfterViewInit, OnDestroy {
   ngOnDestroy(): void {
     document.removeEventListener('mouseup', this.mouseUpListener);
     document.removeEventListener('keydown', this.keydownListener);
+    document.removeEventListener('click', this.docClickListener);
   }
 
   // ─── Dimensions ─────────────────────────────────────────────────────────────
@@ -96,128 +122,132 @@ export class AppComponent implements AfterViewInit, OnDestroy {
   }
 
   // ─── Grid ───────────────────────────────────────────────────────────────────
-buildGrid(): void {
-  const grid   = document.getElementById('garden-grid')!;
-  const rulerX = document.getElementById('ruler-x')!;
-  const rulerY = document.getElementById('ruler-y')!;
+  buildGrid(): void {
+    const grid   = document.getElementById('garden-grid')!;
+    const rulerX = document.getElementById('ruler-x')!;
+    const rulerY = document.getElementById('ruler-y')!;
 
-  if (this.gridMouseMoveListener) {
-    grid.removeEventListener('mousemove', this.gridMouseMoveListener);
-    this.gridMouseMoveListener = null;
-  }
+    if (this.gridMouseMoveListener) {
+      grid.removeEventListener('mousemove', this.gridMouseMoveListener);
+      this.gridMouseMoveListener = null;
+    }
 
-  grid.innerHTML = '';
-  rulerX.innerHTML = '';
-  rulerY.innerHTML = '';
+    grid.innerHTML = '';
+    rulerX.innerHTML = '';
+    rulerY.innerHTML = '';
 
-  grid.style.gridTemplateColumns = `repeat(${this.cols}, var(--cell-size))`;
-  grid.style.gridTemplateRows    = `repeat(${this.rows}, var(--cell-size))`;
+    grid.style.gridTemplateColumns = `repeat(${this.cols}, var(--cell-size))`;
+    grid.style.gridTemplateRows    = `repeat(${this.rows}, var(--cell-size))`;
 
-  for (let c = 0; c < this.cols; c++) {
-    const d = document.createElement('div');
-    d.className = 'ruler-cell' + ((c + 1) % 5 === 0 ? ' labeled' : '');
-    d.textContent = (c + 1) % 5 === 0 ? String(c + 1) : '';
-    rulerX.appendChild(d);
-  }
-
-  for (let r = 0; r < this.rows; r++) {
-    const d = document.createElement('div');
-    d.className = 'ruler-cell' + ((r + 1) % 5 === 0 ? ' labeled' : '');
-    d.textContent = (r + 1) % 5 === 0 ? String(r + 1) : '';
-    rulerY.appendChild(d);
-  }
-
-  for (let r = 0; r < this.rows; r++) {
     for (let c = 0; c < this.cols; c++) {
-      const cell = document.createElement('div');
-      cell.className = 'cell';
-      if ((c + 1) % 5 === 0 && c + 1 < this.cols) cell.classList.add('mark-col');
-      if ((r + 1) % 5 === 0 && r + 1 < this.rows) cell.classList.add('mark-row');
-      cell.dataset['row'] = String(r);
-      cell.dataset['col'] = String(c);
+      const d = document.createElement('div');
+      d.className = 'ruler-cell' + ((c + 1) % 5 === 0 ? ' labeled' : '');
+      d.textContent = (c + 1) % 5 === 0 ? String(c + 1) : '';
+      rulerX.appendChild(d);
+    }
 
-      cell.addEventListener('mouseenter', (e: MouseEvent) => {
-        if (!this.isPainting) return;
-        if (e.shiftKey) {
-          this.eraseCell(cell);
-          return;
-        }
-        if (this.straightLockRow !== null) {
-          if (this.straightAxis === null) {
-            const dr = Math.abs(r - this.straightLockRow!);
-            const dc = Math.abs(c - this.straightLockCol!);
-            if (dr === 0 && dc === 0) return;
-            this.straightAxis = dc >= dr ? 'row' : 'col';
+    for (let r = 0; r < this.rows; r++) {
+      const d = document.createElement('div');
+      d.className = 'ruler-cell' + ((r + 1) % 5 === 0 ? ' labeled' : '');
+      d.textContent = (r + 1) % 5 === 0 ? String(r + 1) : '';
+      rulerY.appendChild(d);
+    }
+
+    for (let r = 0; r < this.rows; r++) {
+      for (let c = 0; c < this.cols; c++) {
+        const cell = document.createElement('div');
+        cell.className = 'cell';
+        if ((c + 1) % 5 === 0 && c + 1 < this.cols) cell.classList.add('mark-col');
+        if ((r + 1) % 5 === 0 && r + 1 < this.rows) cell.classList.add('mark-row');
+        cell.dataset['row'] = String(r);
+        cell.dataset['col'] = String(c);
+
+        cell.addEventListener('mouseenter', (e: MouseEvent) => {
+          if (!this.isPainting) return;
+          if (e.shiftKey) {
+            this.eraseCell(cell);
+            return;
           }
-          if (this.straightAxis === 'row' && r !== this.straightLockRow) return;
-          if (this.straightAxis === 'col' && c !== this.straightLockCol) return;
-        }
-        this.paintCell(cell);
-      });
+          if (this.straightLockRow !== null) {
+            if (this.straightAxis === null) {
+              const dr = Math.abs(r - this.straightLockRow!);
+              const dc = Math.abs(c - this.straightLockCol!);
+              if (dr === 0 && dc === 0) return;
+              this.straightAxis = dc >= dr ? 'row' : 'col';
+            }
+            if (this.straightAxis === 'row' && r !== this.straightLockRow) return;
+            if (this.straightAxis === 'col' && c !== this.straightLockCol) return;
+          }
+          this.paintCell(cell);
+        });
 
-      cell.addEventListener('mousedown', (e: MouseEvent) => {
-        e.preventDefault();
-        this.isPainting = true;
-        if (e.shiftKey) {
-          this.eraseCell(cell);
-          return;
-        }
-        if (e.ctrlKey || e.metaKey) {
-          this.straightLockRow = r;
-          this.straightLockCol = c;
-          this.straightAxis    = null;
-        } else {
-          this.straightLockRow = null;
-          this.straightLockCol = null;
-          this.straightAxis    = null;
-        }
-        this.paintCell(cell);
-      });
+        cell.addEventListener('mousedown', (e: MouseEvent) => {
+          e.preventDefault();
+          if (e.button === 2) return;
+          this.isPainting = true;
+          if (e.shiftKey) {
+            this.eraseCell(cell);
+            return;
+          }
+          if (e.ctrlKey || e.metaKey) {
+            this.straightLockRow = r;
+            this.straightLockCol = c;
+            this.straightAxis    = null;
+          } else {
+            this.straightLockRow = null;
+            this.straightLockCol = null;
+            this.straightAxis    = null;
+          }
+          this.paintCell(cell);
+        });
 
-      grid.appendChild(cell);
+        grid.appendChild(cell);
+      }
     }
+
+    this.gridMouseMoveListener = (e: MouseEvent) => {
+      if (!this.isPainting || this.straightLockRow === null) return;
+
+      const rect     = grid.getBoundingClientRect();
+      const cellSize = parseFloat(
+        getComputedStyle(document.documentElement).getPropertyValue('--cell-size')
+      );
+      let c = Math.floor((e.clientX - rect.left) / cellSize);
+      let r = Math.floor((e.clientY - rect.top)  / cellSize);
+      c = Math.max(0, Math.min(this.cols - 1, c));
+      r = Math.max(0, Math.min(this.rows - 1, r));
+
+      if (this.straightAxis === null) {
+        const dr = Math.abs(r - this.straightLockRow!);
+        const dc = Math.abs(c - this.straightLockCol!);
+        if (dr === 0 && dc === 0) return;
+        this.straightAxis = dc >= dr ? 'row' : 'col';
+      }
+
+      if (this.straightAxis === 'row') r = this.straightLockRow!;
+      if (this.straightAxis === 'col') c = this.straightLockCol!;
+
+      const cells = grid.querySelectorAll('.cell');
+      const cell  = cells[r * this.cols + c] as HTMLElement;
+      if (cell) this.paintCell(cell);
+    };
+    grid.addEventListener('mousemove', this.gridMouseMoveListener);
+
+    grid.addEventListener('contextmenu', (e: MouseEvent) => {
+      e.preventDefault();
+      this.openCtxMenu(e.clientX, e.clientY);
+    });
+
+    this.paintedCount = 0;
+    this.nextCol = 0;
+    this.nextRow = 0;
+    this.setAreaDisplay();
+    this.setFeedback('', '');
   }
-
-  this.gridMouseMoveListener = (e: MouseEvent) => {
-    if (!this.isPainting || this.straightLockRow === null) return;
-
-    const rect     = grid.getBoundingClientRect();
-    const cellSize = parseFloat(
-      getComputedStyle(document.documentElement).getPropertyValue('--cell-size')
-    );
-    let c = Math.floor((e.clientX - rect.left) / cellSize);
-    let r = Math.floor((e.clientY - rect.top)  / cellSize);
-    c = Math.max(0, Math.min(this.cols - 1, c));
-    r = Math.max(0, Math.min(this.rows - 1, r));
-
-    if (this.straightAxis === null) {
-      const dr = Math.abs(r - this.straightLockRow!);
-      const dc = Math.abs(c - this.straightLockCol!);
-      if (dr === 0 && dc === 0) return;
-      this.straightAxis = dc >= dr ? 'row' : 'col';
-    }
-
-    if (this.straightAxis === 'row') r = this.straightLockRow!;
-    if (this.straightAxis === 'col') c = this.straightLockCol!;
-
-    const cells = grid.querySelectorAll('.cell');
-    const cell  = cells[r * this.cols + c] as HTMLElement;
-    if (cell) this.paintCell(cell);
-  };
-  grid.addEventListener('mousemove', this.gridMouseMoveListener);
-
-  this.paintedCount = 0;
-  this.nextCol = 0;
-  this.nextRow = 0;
-  this.setAreaDisplay();
-  this.setFeedback('', '');
-}
-
-
 
   // ─── Paint ──────────────────────────────────────────────────────────────────
   selectToolbarPlant(key: string): void {
-    this.activePlantKey  = key;
+    this.activePlantKey   = key;
     this.selectedModalKey = null;
 
     if (key === 'erase') {
@@ -300,6 +330,24 @@ buildGrid(): void {
     if ((e.target as HTMLElement).classList.contains('modal-backdrop')) this.closeModal();
   }
 
+  // ─── Context menu ────────────────────────────────────────────────────────────
+  openCtxMenu(x: number, y: number): void {
+    const menuW = 180, menuH = 160;
+    this.ctxMenuX    = x + menuW > window.innerWidth  ? x - menuW : x;
+    this.ctxMenuY    = y + menuH > window.innerHeight ? y - menuH : y;
+    this.ctxMenuOpen = true;
+  }
+
+  closeCtxMenu(): void { this.ctxMenuOpen = false; }
+
+  ctxExportPNG(): void { this.closeCtxMenu(); this.exportPNG(); }
+  ctxExportPDF(): void { this.closeCtxMenu(); this.exportPDF(); }
+
+  selectQuickPick(key: string): void {
+    this.selectToolbarPlant(key);
+    this.closeCtxMenu();
+  }
+
   // ─── Plant command ───────────────────────────────────────────────────────────
   findPlant(text: string): PlantDef | null {
     const t = text.toLowerCase();
@@ -365,9 +413,9 @@ buildGrid(): void {
     const raw   = input.value.toLowerCase().trim();
     if (!raw) return;
 
-    const isHoriz    = /\b(horizontal|horiz|across|east.?west|\bew\b)\b/.test(raw);
+    const isHoriz     = /\b(horizontal|horiz|across|east.?west|\bew\b)\b/.test(raw);
     const orientation = isHoriz ? 'horizontal' : 'vertical';
-    const limit      = isHoriz ? this.rows : this.cols;
+    const limit       = isHoriz ? this.rows : this.cols;
 
     let startAt: number | null = null;
     let endAt: number | null   = null;
