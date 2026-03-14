@@ -34,6 +34,7 @@ export class GardenPlannerMain {
   dimWarning = false;
 
   // ─── Paint state ────────────────────────────────────────────────────────────
+  // TODO: Stop using the individual activePlant* properties and just derive them from the selectedPlant signal
   selectedPlant = signal<SelectedPlant>(DEFAULT_SELECTED_PLANT);
 
   /* @deprecated("use the selected plant signal") */ activePlantKey    = 'tomato';
@@ -60,15 +61,6 @@ export class GardenPlannerMain {
 
   // ─── Plant data exposed to template ─────────────────────────────────────────
   readonly plantEntries: PlantDef[] = Object.entries(PLANT_MAP).map(([key, p]) => ({ key, ...p }));
-
-  readonly toolbarPlants = [
-    { key: 'tomato',   label: 'Tomatoes',    color: PLANT_MAP['tomato'].color },
-    { key: 'cucumber', label: 'Cucumbers',   color: PLANT_MAP['cucumber'].color },
-    { key: 'corn',     label: 'Corn',        color: PLANT_MAP['corn'].color },
-    { key: 'bean',     label: 'Green Beans', color: PLANT_MAP['bean'].color },
-    { key: 'carrot',   label: 'Carrots',     color: PLANT_MAP['carrot'].color },
-    { key: 'pepper',   label: 'Peppers',     color: PLANT_MAP['pepper'].color },
-  ];
 
   readonly quickPickPlants = [
     { key: 'corn',     color: PLANT_MAP['corn'].color },
