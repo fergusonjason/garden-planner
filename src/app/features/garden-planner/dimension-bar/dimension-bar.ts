@@ -1,6 +1,6 @@
 import { CommonModule } from '@angular/common';
-import { Component, inject, input, model, output, signal } from '@angular/core';
-import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { AfterViewInit, Component, inject, input, model, output, signal } from '@angular/core';
+import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 
 @Component({
   selector: 'garden-planner-dimension-bar',
@@ -11,12 +11,12 @@ import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
   templateUrl: './dimension-bar.html',
   styleUrl: './dimension-bar.css',
 })
-export class DimensionBar {
+export class DimensionBar implements AfterViewInit{
 
   private formBuilder = inject(FormBuilder)
 
-  colsInput = input<number>();
-  rowsInput = input<number>();
+  initialCols = input.required<number>();
+  initialRows = input.required<number>();
 
   // TODO: these really need to be configured elsewhere
   readonly minimumColumnCount = 5;
@@ -28,15 +28,20 @@ export class DimensionBar {
 
   dimWarning = signal(false);
 
-  dimensionsFormGroup = this.formBuilder.group({
-    cols: [40, [Validators.required, Validators.min(this.minimumColumnCount), Validators.max(this.maximumColumnCount)]],
-    rows: [25, [Validators.required, Validators.min(this.minimumRowCount), Validators.max(this.maximumRowCount)]],
-  });
+  dimensionsFormGroup!: FormGroup;
+
+  ngAfterViewInit(): void {
+
+    this.dimensionsFormGroup = this.formBuilder.group({
+      cols: [this.initialCols(), [Validators.required, Validators.min(this.minimumColumnCount), Validators.max(this.maximumColumnCount)]],
+      rows: [this.initialRows(), [Validators.required, Validators.min(this.minimumRowCount), Validators.max(this.maximumRowCount)]],
+    });
+  }
 
   applyDimensions(): void {
     // TODO: change the 40x25 to something more generic
-    const cols = Math.min(200, Math.max(this.minimumColumnCount, this.colsInput() || 40));
-    const rows = Math.min(200, Math.max(this.maximumColumnCount, this.rowsInput() || 25));
+    const cols = Math.min(200, Math.max(this.minimumColumnCount, this.initialCols()));
+    const rows = Math.min(200, Math.max(this.maximumColumnCount, this.initialRows()));
     this.dimensionChange.emit({ cols, rows });
   }
 
