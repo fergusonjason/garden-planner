@@ -5,10 +5,10 @@
 </header>
 
 <!-- Dimension controls -->
- <garden-planner-dimension-bar [initialCols]="defaultCols" [initialRows]="defaultRows" (dimensionChange)="applyDimensions($event)"/>
+<garden-planner-dimension-bar [initialCols]="defaultCols" [initialRows]="defaultRows" (dimensionChange)="applyDimensions($event)"/>
 
 <!-- Paint toolbar -->
- <garden-planner-planting-toolbar [selectedPlant]="selectedPlant()" (selectPlant)="doSelectPlant($event)"/>
+<garden-planner-planting-toolbar [selectedPlant]="selectedPlant()" (selectPlant)="doSelectPlant($event)"/>
 
 <!-- Active plant indicator -->
 <div id="plant-active-bar" [style.display]="activePlantColor ? 'flex' : 'none'"
