@@ -7,6 +7,7 @@ import { PlantDef } from 'src/app/shared/models/plant-def';
 import { DimensionBar } from "../../../dimension-bar/dimension-bar";
 import { PlantingSelector } from '../../../planting-selector/planting-selector';
 import { DEFAULT_SELECTED_PLANT, SelectedPlant } from 'src/app/shared/models/selected-plant';
+import { PlantingToolbar } from '../../../components/planting-toolbar/planting-toolbar';
 
 @Component({
   selector: 'garden-planner-main',
@@ -14,7 +15,8 @@ import { DEFAULT_SELECTED_PLANT, SelectedPlant } from 'src/app/shared/models/sel
     CommonModule,
     FormsModule, // yech
     DimensionBar,
-    PlantingSelector
+    PlantingSelector,
+    PlantingToolbar
 ],
   templateUrl: './garden-planner-main.html',
   styleUrl: './garden-planner-main.css',
@@ -34,7 +36,7 @@ export class GardenPlannerMain {
   // ─── Paint state ────────────────────────────────────────────────────────────
   selectedPlant = signal<SelectedPlant>(DEFAULT_SELECTED_PLANT);
 
-  activePlantKey    = 'tomato';
+  /* @deprecated("use the selected plant signal") */ activePlantKey    = 'tomato';
   activePlantColor: string | null = null;
   activePlantName: string | null  = null;
   currentZone: string | null      = null;

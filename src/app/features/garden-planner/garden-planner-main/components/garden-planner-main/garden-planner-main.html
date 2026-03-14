@@ -7,18 +7,7 @@
  <garden-planner-dimension-bar [initialCols]="defaultCols" [initialRows]="defaultRows" (dimensionChange)="applyDimensions($event)"/>
 
 <!-- Paint toolbar -->
-<div class="toolbar" id="toolbar">
-  @for (btn of toolbarPlants; track btn.key) {
-    <button class="tool-btn"
-            [class.active]="activePlantKey === btn.key"
-            (click)="selectToolbarPlant(btn.key)">
-      <span class="swatch" [style.background]="btn.color"></span> {{ btn.label }}
-    </button>
-  }
-  <button class="tool-btn" [class.active]="activePlantKey === 'erase'" (click)="selectToolbarPlant('erase')">
-    <span class="swatch" style="background:#2a4a30;border:1px solid #fff3"></span> Erase
-  </button>
-</div>
+ <garden-planner-planting-toolbar [selectedPlant]="selectedPlant()" (selectPlant)="doSelectPlant($event)"/>
 
 <!-- Active plant indicator -->
 <div id="plant-active-bar" [style.display]="activePlantColor ? 'flex' : 'none'"
