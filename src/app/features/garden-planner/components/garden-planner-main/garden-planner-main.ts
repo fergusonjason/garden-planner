@@ -8,6 +8,7 @@ import { DEFAULT_SELECTED_PLANT, SelectedPlant } from 'src/app/shared/models/sel
 import { DimensionBar } from '../dimension-bar/dimension-bar';
 import { PlantingSelector } from '../planting-selector/planting-selector';
 import { PlantingToolbar } from '../planting-toolbar/planting-toolbar';
+import { ContextMenu } from 'src/app/features/garden-planner-main/components/context-menu/context-menu';
 
 @Component({
   selector: 'garden-planner-main',
@@ -16,7 +17,8 @@ import { PlantingToolbar } from '../planting-toolbar/planting-toolbar';
     FormsModule, // yech
     DimensionBar,
     PlantingSelector,
-    PlantingToolbar
+    PlantingToolbar,
+    ContextMenu
 ],
   templateUrl: './garden-planner-main.html',
   styleUrl: './garden-planner-main.css',
@@ -56,18 +58,18 @@ export class GardenPlannerMain {
 
   // ─── Context menu ────────────────────────────────────────────────────────────
   ctxMenuOpen = signal<boolean>(false);
-  ctxMenuX    = 0;
-  ctxMenuY    = 0;
+  ctxMenuX    = signal<number>(0);
+  ctxMenuY    = signal<number>(0);
 
   // ─── Plant data exposed to template ─────────────────────────────────────────
   readonly plantEntries: PlantDef[] = Object.entries(PLANT_MAP).map(([key, p]) => ({ key, ...p }));
 
-  readonly quickPickPlants = [
-    { key: 'corn',     color: PLANT_MAP['corn'].color },
-    { key: 'cucumber', color: PLANT_MAP['cucumber'].color },
-    { key: 'bean',     color: PLANT_MAP['bean'].color },
-    { key: 'tomato',   color: PLANT_MAP['tomato'].color },
-  ];
+  // readonly quickPickPlants = [
+  //   { key: 'corn',     color: PLANT_MAP['corn'].color },
+  //   { key: 'cucumber', color: PLANT_MAP['cucumber'].color },
+  //   { key: 'bean',     color: PLANT_MAP['bean'].color },
+  //   { key: 'tomato',   color: PLANT_MAP['tomato'].color },
+  // ];
 
   // ─── Listeners ───────────────────────────────────────────────────────────────
   private mouseUpListener = () => {
@@ -373,8 +375,8 @@ confirmClear(): void {
   // ─── Context menu ────────────────────────────────────────────────────────────
   openCtxMenu(x: number, y: number): void {
     const menuW = 180, menuH = 160;
-    this.ctxMenuX    = x + menuW > window.innerWidth  ? x - menuW : x;
-    this.ctxMenuY    = y + menuH > window.innerHeight ? y - menuH : y;
+    this.ctxMenuX.set(x + menuW > window.innerWidth  ? x - menuW : x);
+    this.ctxMenuY.set(y + menuH > window.innerHeight ? y - menuH : y);
     this.ctxMenuOpen.set(true);
   }
 
