@@ -70,7 +70,7 @@
 </div>
 
 <!-- Plant Spacing Modal -->
- @let plantSelectorOpen1 = plantSelectorOpen();
+ @let plantSelectorOpen1 = plantSelectorDialogOpen();
  @if (plantSelectorOpen1) {
     <div class="modal-backdrop" [class.open]="plantSelectorOpen1" (click)="closeModal()">
       <garden-planner-planting-selector (selectPlant)="doSelectPlant($event)"/>
