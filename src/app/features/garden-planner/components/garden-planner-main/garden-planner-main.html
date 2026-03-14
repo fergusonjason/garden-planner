@@ -40,11 +40,6 @@
 
 <!-- Command bar -->
 <div class="command-bar">
-  <div class="cmd-label">PLANT</div>
-  <input id="cmd-input" type="text"
-         placeholder='e.g. "3 rows of tomatoes" · "corn from 5 to 20" · "horizontal beans between 3 and 15"'
-         (keydown.enter)="runCommand()" />
-  <button class="btn-action" (click)="runCommand()">↵ Plant</button>
   <button class="btn-action ghost" (click)="openModal()">📋 Plant Selector</button>
 </div>
 <div id="cmd-feedback"></div>
