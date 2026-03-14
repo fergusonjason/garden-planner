@@ -1,7 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { Component } from '@angular/core';
+import { GardenPlannerMain } from './features/garden-planner/components/garden-planner-main/garden-planner-main';
 
-import { GardenPlannerMain } from './features/garden-planner/garden-planner-main/components/garden-planner-main/garden-planner-main';
 
 
 @Component({
