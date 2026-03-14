@@ -68,29 +68,32 @@
 
 
 <!-- Right-click context menu -->
-<div class="ctx-menu" [class.open]="ctxMenuOpen"
-     [style.left.px]="ctxMenuX" [style.top.px]="ctxMenuY">
-  <div class="ctx-item ctx-has-sub">
-    Quick Plant <span class="ctx-arrow">▶</span>
-    <div class="ctx-submenu">
-      <div class="ctx-item ctx-plant" (click)="selectQuickPick('corn')">
-        <span class="ctx-dot" [style.background]="quickPickPlants[0].color"></span> Corn
-      </div>
-      <div class="ctx-item ctx-plant" (click)="selectQuickPick('cucumber')">
-        <span class="ctx-dot" [style.background]="quickPickPlants[1].color"></span> Cucumbers
-      </div>
-      <div class="ctx-item ctx-plant" (click)="selectQuickPick('bean')">
-        <span class="ctx-dot" [style.background]="quickPickPlants[2].color"></span> Green Beans
-      </div>
-      <div class="ctx-item ctx-plant" (click)="selectQuickPick('tomato')">
-        <span class="ctx-dot" [style.background]="quickPickPlants[3].color"></span> Tomatoes
-      </div>
-    </div>
-  </div>
-  <div class="ctx-divider"></div>
-  <div class="ctx-item" (click)="ctxExportPNG()">Export PNG</div>
-  <div class="ctx-item" (click)="ctxExportPDF()">Export PDF</div>
-</div>
+ @let ctxMenuOpen1 = ctxMenuOpen();
+ @if (ctxMenuOpen1) {
+   <div class="ctx-menu" [class.open]="ctxMenuOpen1"
+        [style.left.px]="ctxMenuX" [style.top.px]="ctxMenuY">
+     <div class="ctx-item ctx-has-sub">
+       Quick Plant <span class="ctx-arrow">▶</span>
+       <div class="ctx-submenu">
+         <div class="ctx-item ctx-plant" (click)="selectQuickPick('corn')">
+           <span class="ctx-dot" [style.background]="quickPickPlants[0].color"></span> Corn
+         </div>
+         <div class="ctx-item ctx-plant" (click)="selectQuickPick('cucumber')">
+           <span class="ctx-dot" [style.background]="quickPickPlants[1].color"></span> Cucumbers
+         </div>
+         <div class="ctx-item ctx-plant" (click)="selectQuickPick('bean')">
+           <span class="ctx-dot" [style.background]="quickPickPlants[2].color"></span> Green Beans
+         </div>
+         <div class="ctx-item ctx-plant" (click)="selectQuickPick('tomato')">
+           <span class="ctx-dot" [style.background]="quickPickPlants[3].color"></span> Tomatoes
+         </div>
+       </div>
+     </div>
+     <div class="ctx-divider"></div>
+     <div class="ctx-item" (click)="ctxExportPNG()">Export PNG</div>
+     <div class="ctx-item" (click)="ctxExportPDF()">Export PDF</div>
+   </div>
+ }
 
 <!-- Clear confirmation dialog -->
 <div class="dialog-backdrop" [class.open]="clearDialogOpen" (click)="closeClearDialog($event)">

@@ -55,7 +55,7 @@ export class GardenPlannerMain {
   plantSelectorDialogOpen = signal<boolean>(false);
 
   // ─── Context menu ────────────────────────────────────────────────────────────
-  ctxMenuOpen = false;
+  ctxMenuOpen = signal<boolean>(false);
   ctxMenuX    = 0;
   ctxMenuY    = 0;
 
@@ -375,10 +375,12 @@ confirmClear(): void {
     const menuW = 180, menuH = 160;
     this.ctxMenuX    = x + menuW > window.innerWidth  ? x - menuW : x;
     this.ctxMenuY    = y + menuH > window.innerHeight ? y - menuH : y;
-    this.ctxMenuOpen = true;
+    this.ctxMenuOpen.set(true);
   }
 
-  closeCtxMenu(): void { this.ctxMenuOpen = false; }
+  closeCtxMenu(): void {
+    this.ctxMenuOpen.set(false);
+  }
 
   ctxExportPNG(): void { this.closeCtxMenu(); this.exportService.exportPNG(this.cols(), this.rows()); }
   ctxExportPDF(): void { this.closeCtxMenu(); this.exportService.exportPDF(); }
