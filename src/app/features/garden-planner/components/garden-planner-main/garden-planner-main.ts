@@ -1,20 +1,18 @@
 import { CommonModule } from '@angular/common';
 import { Component, inject, signal } from '@angular/core';
-import { FormsModule } from '@angular/forms';
 import { ExportService } from 'src/app/core/services/export-service';
+import { ContextMenu } from 'src/app/features/garden-planner-main/components/context-menu/context-menu';
 import { PLANT_MAP } from 'src/app/shared/constants/plant-map-constants';
 import { PlantDef } from 'src/app/shared/models/plant-def';
 import { DEFAULT_SELECTED_PLANT, SelectedPlant } from 'src/app/shared/models/selected-plant';
 import { DimensionBar } from '../dimension-bar/dimension-bar';
 import { PlantingSelector } from '../planting-selector/planting-selector';
 import { PlantingToolbar } from '../planting-toolbar/planting-toolbar';
-import { ContextMenu } from 'src/app/features/garden-planner-main/components/context-menu/context-menu';
 
 @Component({
   selector: 'garden-planner-main',
   imports: [
     CommonModule,
-    FormsModule, // yech
     DimensionBar,
     PlantingSelector,
     PlantingToolbar,
@@ -64,12 +62,6 @@ export class GardenPlannerMain {
   // ─── Plant data exposed to template ─────────────────────────────────────────
   readonly plantEntries: PlantDef[] = Object.entries(PLANT_MAP).map(([key, p]) => ({ key, ...p }));
 
-  // readonly quickPickPlants = [
-  //   { key: 'corn',     color: PLANT_MAP['corn'].color },
-  //   { key: 'cucumber', color: PLANT_MAP['cucumber'].color },
-  //   { key: 'bean',     color: PLANT_MAP['bean'].color },
-  //   { key: 'tomato',   color: PLANT_MAP['tomato'].color },
-  // ];
 
   // ─── Listeners ───────────────────────────────────────────────────────────────
   private mouseUpListener = () => {
