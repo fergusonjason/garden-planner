@@ -5,14 +5,16 @@ import { ExportService } from 'src/app/core/services/export-service';
 import { PLANT_MAP } from 'src/app/shared/constants/plant-map-constants';
 import { PlantDef } from 'src/app/shared/models/plant-def';
 import { DimensionBar } from "../../../dimension-bar/dimension-bar";
+import { PlantingSelector } from '../../../planting-selector/planting-selector';
+import { SelectedPlant } from 'src/app/shared/models/selected-plant';
 
 @Component({
   selector: 'garden-planner-main',
   imports: [
     CommonModule,
-    FormsModule // yech
-    ,
-    DimensionBar
+    FormsModule, // yech
+    DimensionBar,
+    PlantingSelector
 ],
   templateUrl: './garden-planner-main.html',
   styleUrl: './garden-planner-main.css',
@@ -32,6 +34,8 @@ export class GardenPlannerMain {
   dimWarning = false;
 
   // ─── Paint state ────────────────────────────────────────────────────────────
+  selectedPlant = signal<SelectedPlant | null>(null);
+
   activePlantKey    = 'tomato';
   activePlantColor: string | null = null;
   activePlantName: string | null  = null;
@@ -275,6 +279,17 @@ private keydownListener = (e: KeyboardEvent) => {
       this.activePlantColor = p.color;
       this.activePlantName  = p.aliases[0];
     }
+  }
+
+  doSelectPlant($event: SelectedPlant): void {
+    this.selectedPlant.set($event);
+
+    this.selectedModalKey = $event.selectedModalKey;
+    this.activePlantKey   = $event.activePlantKey;
+    this.currentZone      = $event.currentZone;
+    this.activePlantColor = $event.activePlantColor;
+    this.activePlantName  = $event.activePlantName;
+    this.closeModal();
   }
 
   selectPlantFromModal(key: string): void {

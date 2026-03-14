@@ -55,7 +55,7 @@
          placeholder='e.g. "3 rows of tomatoes" · "corn from 5 to 20" · "horizontal beans between 3 and 15"'
          (keydown.enter)="runCommand()" />
   <button class="btn-action" (click)="runCommand()">↵ Plant</button>
-  <button class="btn-action ghost" (click)="openModal()">📋 Spacing Guide</button>
+  <button class="btn-action ghost" (click)="openModal()">📋 Plant Selector</button>
 </div>
 <div id="cmd-feedback"></div>
 
@@ -70,7 +70,13 @@
 </div>
 
 <!-- Plant Spacing Modal -->
- @let modalOpen1 = modalOpen();
+ @if (modalOpen()) {
+    <div class="modal-backdrop" [class.open]="modalOpen()" (click)="closeModal()">
+      <garden-planner-planting-selector (selectPlant)="doSelectPlant($event)"/>
+    </div>
+   <!-- <garden-planner-planting-selector (selectPlant)="selectPlantFromModal($event)"></garden-planner-planting-selector> -->
+ }
+ <!-- @let modalOpen1 = modalOpen();
 <div class="modal-backdrop" [class.open]="modalOpen1" (click)="closeModalBackdrop($event)">
   <div class="modal">
     <button class="modal-close" (click)="closeModal()">✕</button>
@@ -108,7 +114,7 @@
       * Values are recommendations based on common gardening practice and may vary by variety, soil, and climate.
     </p>
   </div>
-</div>
+</div> -->
 
 <!-- Right-click context menu -->
 <div class="ctx-menu" [class.open]="ctxMenuOpen"
