@@ -1,20 +1,10 @@
 <header>
   <h1>Garden Planner</h1>
-  <p id="header-subtitle">{{ cols }} ft × {{ rows }} ft · {{ (cols * rows) | number }} sq ft · 1 cell = 1 sq ft</p>
+  <p id="header-subtitle">{{ cols() }} ft × {{ rows() }} ft · {{ (cols() * rows()) | number }} sq ft · 1 cell = 1 sq ft</p>
 </header>
 
 <!-- Dimension controls -->
-<div class="dim-bar">
-  <label>Width</label>
-  <input type="number" id="inp-cols" [(ngModel)]="colsInput" min="5" max="200" (keydown.enter)="applyDimensions()">
-  <span class="dim-unit">ft</span>
-  <span class="dim-sep">×</span>
-  <label>Height</label>
-  <input type="number" id="inp-rows" [(ngModel)]="rowsInput" min="5" max="200" (keydown.enter)="applyDimensions()">
-  <span class="dim-unit">ft</span>
-  <button class="btn-action" (click)="applyDimensions()" style="margin-left:6px;">Apply</button>
-  <span [style.display]="dimWarning ? 'inline' : 'none'" style="font-size:0.68rem;color:#e07070;">⚠ Applying will clear the grid</span>
-</div>
+ <garden-planner-dimension-bar (dimensionChange)="applyDimensions($event)"/>
 
 <!-- Paint toolbar -->
 <div class="toolbar" id="toolbar">

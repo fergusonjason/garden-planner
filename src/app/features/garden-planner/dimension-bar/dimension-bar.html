@@ -1,0 +1,12 @@
+<!-- Dimension controls -->
+<div class="dim-bar" [formGroup]="dimensionsFormGroup">
+  <label>Width</label>
+  <input type="number" id="inp-cols"  [value]="colsInput()" formControlName="cols" min="5" max="200" (keydown.enter)="doApplyDimensions()">
+  <span class="dim-unit">ft</span>
+  <span class="dim-sep">×</span>
+  <label>Height</label>
+  <input type="number" id="inp-rows" [value]="rowsInput()" formControlName="rows" min="5" max="200" (keydown.enter)="doApplyDimensions()">
+  <span class="dim-unit">ft</span>
+  <button class="btn-action" (click)="doApplyDimensions()" style="margin-left:6px;">Apply</button>
+  <span [style.display]="dimWarning() ? 'inline' : 'none'" style="font-size:0.68rem;color:#e07070;">⚠ Applying will clear the grid</span>
+</div>

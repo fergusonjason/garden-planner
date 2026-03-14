@@ -4,13 +4,16 @@ import { FormsModule } from '@angular/forms';
 import { ExportService } from 'src/app/core/services/export-service';
 import { PLANT_MAP } from 'src/app/shared/constants/plant-map-constants';
 import { PlantDef } from 'src/app/shared/models/plant-def';
+import { DimensionBar } from "../../../dimension-bar/dimension-bar";
 
 @Component({
   selector: 'garden-planner-main',
   imports: [
     CommonModule,
-    FormsModule   // yech
-  ],
+    FormsModule // yech
+    ,
+    DimensionBar
+],
   templateUrl: './garden-planner-main.html',
   styleUrl: './garden-planner-main.css',
 })
@@ -18,11 +21,14 @@ export class GardenPlannerMain {
 
   private exportService:ExportService = inject(ExportService);
 
+  readonly defaultCols = 40;
+  readonly defaultRows = 40;
+
   // ─── Grid dimensions ────────────────────────────────────────────────────────
-  cols = 40;
-  rows = 25;
-  colsInput = 40;
-  rowsInput = 25;
+  // cols = 40;
+  // rows = 25;
+  cols = signal<number>(this.defaultCols);
+  rows = signal<number>(this.defaultRows);
   dimWarning = false;
 
   // ─── Paint state ────────────────────────────────────────────────────────────
@@ -117,11 +123,9 @@ private keydownListener = (e: KeyboardEvent) => {
   }
 
   // ─── Dimensions ─────────────────────────────────────────────────────────────
-  applyDimensions(): void {
-    this.cols = Math.min(200, Math.max(5, this.colsInput || 40));
-    this.rows = Math.min(200, Math.max(5, this.rowsInput || 25));
-    this.colsInput = this.cols;
-    this.rowsInput = this.rows;
+  applyDimensions(e: { cols: number, rows: number }): void {
+    this.cols.set(e.cols);
+    this.rows.set(e.rows);
     this.dimWarning = false;
     this.buildGrid();
   }
@@ -141,29 +145,35 @@ private keydownListener = (e: KeyboardEvent) => {
     rulerX.innerHTML = '';
     rulerY.innerHTML = '';
 
-    grid.style.gridTemplateColumns = `repeat(${this.cols}, var(--cell-size))`;
-    grid.style.gridTemplateRows    = `repeat(${this.rows}, var(--cell-size))`;
+    const cols = this.cols();
+    const rows = this.rows();
 
-    for (let c = 0; c < this.cols; c++) {
+        grid.style.gridTemplateColumns = `repeat(${cols}, var(--cell-size))`;
+    grid.style.gridTemplateRows    = `repeat(${rows}, var(--cell-size))`;
+    // grid.style.gridTemplateColumns = `repeat(${this.cols}, var(--cell-size))`;
+    // grid.style.gridTemplateRows    = `repeat(${this.rows}, var(--cell-size))`;
+
+    for (let c = 0; c < cols; c++) {
+    // for (let c = 0; c < this.cols; c++) {
       const d = document.createElement('div');
       d.className = 'ruler-cell' + ((c + 1) % 5 === 0 ? ' labeled' : '');
       d.textContent = (c + 1) % 5 === 0 ? String(c + 1) : '';
       rulerX.appendChild(d);
     }
 
-    for (let r = 0; r < this.rows; r++) {
+    for (let r = 0; r < rows; r++) {
       const d = document.createElement('div');
       d.className = 'ruler-cell' + ((r + 1) % 5 === 0 ? ' labeled' : '');
       d.textContent = (r + 1) % 5 === 0 ? String(r + 1) : '';
       rulerY.appendChild(d);
     }
 
-    for (let r = 0; r < this.rows; r++) {
-      for (let c = 0; c < this.cols; c++) {
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
         const cell = document.createElement('div');
         cell.className = 'cell';
-        if ((c + 1) % 5 === 0 && c + 1 < this.cols) cell.classList.add('mark-col');
-        if ((r + 1) % 5 === 0 && r + 1 < this.rows) cell.classList.add('mark-row');
+        if ((c + 1) % 5 === 0 && c + 1 < cols) cell.classList.add('mark-col');
+        if ((r + 1) % 5 === 0 && r + 1 < rows) cell.classList.add('mark-row');
         cell.dataset['row'] = String(r);
         cell.dataset['col'] = String(c);
 
@@ -219,8 +229,8 @@ private keydownListener = (e: KeyboardEvent) => {
       );
       let c = Math.floor((e.clientX - rect.left) / cellSize);
       let r = Math.floor((e.clientY - rect.top)  / cellSize);
-      c = Math.max(0, Math.min(this.cols - 1, c));
-      r = Math.max(0, Math.min(this.rows - 1, r));
+      c = Math.max(0, Math.min(cols - 1, c));
+      r = Math.max(0, Math.min(rows - 1, r));
 
       if (this.straightAxis === null) {
         const dr = Math.abs(r - this.straightLockRow!);
@@ -233,7 +243,7 @@ private keydownListener = (e: KeyboardEvent) => {
       if (this.straightAxis === 'col') c = this.straightLockCol!;
 
       const cells = grid.querySelectorAll('.cell');
-      const cell  = cells[r * this.cols + c] as HTMLElement;
+      const cell  = cells[r * cols + c] as HTMLElement;
       if (cell) this.paintCell(cell);
     };
     grid.addEventListener('mousemove', this.gridMouseMoveListener);
@@ -364,7 +374,7 @@ confirmClear(): void {
 
   closeCtxMenu(): void { this.ctxMenuOpen = false; }
 
-  ctxExportPNG(): void { this.closeCtxMenu(); this.exportService.exportPNG(this.cols, this.rows); }
+  ctxExportPNG(): void { this.closeCtxMenu(); this.exportService.exportPNG(this.cols(), this.rows()); }
   ctxExportPDF(): void { this.closeCtxMenu(); this.exportService.exportPDF(); }
 
   selectQuickPick(key: string): void {
@@ -385,7 +395,7 @@ confirmClear(): void {
     const isVert = orientation === 'vertical';
     const cells  = document.querySelectorAll('.cell');
     const sep    = plant.gap - plant.rowWidth;
-    const limit  = isVert ? this.cols : this.rows;
+    const limit  = isVert ? this.cols() : this.rows();
     const start  = startAt !== null ? startAt : (isVert ? this.nextCol : this.nextRow);
 
     let resolvedCount = count;
@@ -403,12 +413,12 @@ confirmClear(): void {
 
     for (let i = 0; i < resolvedCount; i++) {
       const lineStart = start + i * plant.gap;
-      const crossLimit = isVert ? this.rows : this.cols;
+      const crossLimit = isVert ? this.rows() : this.cols();
       for (let cross = 0; cross < crossLimit; cross++) {
         for (let w = 0; w < plant.rowWidth; w++) {
           const along = lineStart + w;
           if (along >= limit) continue;
-          const idx  = isVert ? (cross * this.cols + along) : (along * this.cols + cross);
+          const idx  = isVert ? (cross * this.cols() + along) : (along * this.cols() + cross);
           const cell = cells[idx] as HTMLElement;
           if (!cell) continue;
           if (!cell.dataset['customColor'] && !cell.dataset['zone']) this.paintedCount++;
@@ -439,7 +449,7 @@ confirmClear(): void {
 
     const isHoriz     = /\b(horizontal|horiz|across|east.?west|\bew\b)\b/.test(raw);
     const orientation = isHoriz ? 'horizontal' : 'vertical';
-    const limit       = isHoriz ? this.rows : this.cols;
+    const limit       = isHoriz ? this.rows() : this.cols();
 
     let startAt: number | null = null;
     let endAt: number | null   = null;
@@ -518,13 +528,13 @@ confirmClear(): void {
       painted[`${cell.dataset['col']},${cell.dataset['row']}`] = plant;
     });
 
-    for (let r = 0; r < this.rows; r++) {
+    for (let r = 0; r < this.rows(); r++) {
       let rs = 0;
-      while (rs < this.cols) {
+      while (rs < this.cols()) {
         const plant = painted[`${rs},${r}`] || null;
         if (!plant) { rs++; continue; }
         let len = 1;
-        while (rs + len < this.cols && (painted[`${rs + len},${r}`] || null) === plant) len++;
+        while (rs + len < this.cols() && (painted[`${rs + len},${r}`] || null) === plant) len++;
         lines.push(`  <span x="${rs}" y="${r}" len="${len}" plant="${plant}"/>`);
         rs += len;
       }
@@ -571,10 +581,14 @@ confirmClear(): void {
       const garden  = doc.querySelector('garden')!;
       const newCols = parseInt(garden.getAttribute('width')!);
       const newRows = parseInt(garden.getAttribute('height')!);
-      if (!newCols || !newRows) throw new Error('Missing width/height in .garden file');
 
-      this.cols      = newCols; this.colsInput = newCols;
-      this.rows      = newRows; this.rowsInput = newRows;
+      if (!newCols || !newRows)
+        throw new Error('Missing width/height in .garden file');
+
+      // this.cols      = newCols;
+      this.cols.set(newCols);
+      // this.rows      = newRows;
+      this.rows.set(newRows);
       this.buildGrid();
 
       const cellEls = document.querySelectorAll('.cell');
@@ -587,8 +601,8 @@ confirmClear(): void {
         const color = PLANT_MAP[plant]?.color ?? null;
         for (let i = 0; i < len; i++) {
           const col = x + i;
-          if (col >= this.cols || y >= this.rows) continue;
-          const cell = cellEls[y * this.cols + col] as HTMLElement;
+          if (col >= this.cols() || y >= this.rows()) continue;
+          const cell = cellEls[y * this.cols() + col] as HTMLElement;
           if (!cell) continue;
           if (color) {
             cell.style.background       = color;
