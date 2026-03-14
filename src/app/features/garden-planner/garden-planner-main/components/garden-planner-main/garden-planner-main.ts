@@ -27,8 +27,6 @@ export class GardenPlannerMain {
   readonly defaultRows = 40;
 
   // ─── Grid dimensions ────────────────────────────────────────────────────────
-  // cols = 40;
-  // rows = 25;
   cols = signal<number>(this.defaultCols);
   rows = signal<number>(this.defaultRows);
   dimWarning = false;
@@ -51,7 +49,7 @@ export class GardenPlannerMain {
 
   // ─── Modal ──────────────────────────────────────────────────────────────────
   clearDialogOpen = false;
-  plantSelectorOpen = signal<boolean>(false);
+  plantSelectorDialogOpen = signal<boolean>(false);
 
   // ─── Context menu ────────────────────────────────────────────────────────────
   ctxMenuOpen = false;
@@ -368,11 +366,11 @@ confirmClear(): void {
 
   // ─── Modal ──────────────────────────────────────────────────────────────────
   openModal(): void  {
-    this.plantSelectorOpen.set(true);
+    this.plantSelectorDialogOpen.set(true);
   }
 
   closeModal(): void {
-    this.plantSelectorOpen.set(false);
+    this.plantSelectorDialogOpen.set(false);
   }
   closeModalBackdrop(e: MouseEvent): void {
     if ((e.target as HTMLElement).classList.contains('modal-backdrop')) this.closeModal();
