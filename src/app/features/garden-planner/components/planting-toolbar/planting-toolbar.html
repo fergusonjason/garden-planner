@@ -1,0 +1,13 @@
+
+<div class="toolbar" id="toolbar">
+  @for (btn of toolbarPlants; track btn.key) {
+    <button class="tool-btn"
+            [class.active]="activePlantKey() === btn.key"
+            (click)="doSelectPlant(btn.key)">
+      <span class="swatch" [style.background]="btn.color"></span> {{ btn.label }}
+    </button>
+  }
+  <!-- <button class="tool-btn" [class.active]="activePlantKey === 'erase'" (click)="selectToolbarPlant('erase')">
+    <span class="swatch" style="background:#2a4a30;border:1px solid #fff3"></span> Erase
+  </button> -->
+</div>
