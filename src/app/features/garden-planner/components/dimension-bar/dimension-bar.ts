@@ -39,9 +39,8 @@ export class DimensionBar implements AfterViewInit{
   }
 
   applyDimensions(): void {
-    // TODO: change the 40x25 to something more generic
-    const cols = Math.min(200, Math.max(this.minimumColumnCount, this.initialCols()));
-    const rows = Math.min(200, Math.max(this.maximumColumnCount, this.initialRows()));
+    const cols = Math.min(this.maximumColumnCount, Math.max(this.minimumColumnCount, this.initialCols()));
+    const rows = Math.min(this.maximumRowCount, Math.max(this.minimumRowCount, this.initialRows()));
     this.dimensionChange.emit({ cols, rows });
   }
 
