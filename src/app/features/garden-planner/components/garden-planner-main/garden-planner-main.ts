@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { ExportService } from 'src/app/core/services/export-service';
 import { ContextMenu } from 'src/app/features/garden-planner-main/components/context-menu/context-menu';
 import { PLANT_MAP } from 'src/app/shared/constants/plant-map-constants';
@@ -32,6 +32,16 @@ export class GardenPlannerMain {
   cols = signal<number>(this.defaultCols);
   rows = signal<number>(this.defaultRows);
   dimWarning = false;
+
+  subtitle = computed<string>(() => {
+
+    const cols = this.cols();
+    const rows = this.rows();
+    const sqFt = cols * rows;
+
+    const result = `${cols} ft × ${rows} ft · ${sqFt} sq ft · 1 cell = 1 sq ft`;
+    return result;
+  });
 
   // ─── Paint state ────────────────────────────────────────────────────────────
   // TODO: Stop using the individual activePlant* properties and just derive them from the selectedPlant signal
