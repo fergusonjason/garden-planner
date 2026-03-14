@@ -80,7 +80,8 @@
 </div>
 
 <!-- Plant Spacing Modal -->
-<div class="modal-backdrop" [class.open]="modalOpen" (click)="closeModalBackdrop($event)">
+ @let modalOpen1 = modalOpen();
+<div class="modal-backdrop" [class.open]="modalOpen1" (click)="closeModalBackdrop($event)">
   <div class="modal">
     <button class="modal-close" (click)="closeModal()">✕</button>
     <h2>Plant Spacing Guide</h2>
