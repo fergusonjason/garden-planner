@@ -51,8 +51,7 @@ export class GardenPlannerMain {
 
   // ─── Modal ──────────────────────────────────────────────────────────────────
   clearDialogOpen = false;
-  modalOpen = signal<boolean>(false);
-  // modalOpen = false;
+  plantSelectorOpen = signal<boolean>(false);
 
   // ─── Context menu ────────────────────────────────────────────────────────────
   ctxMenuOpen = false;
@@ -369,11 +368,11 @@ confirmClear(): void {
 
   // ─── Modal ──────────────────────────────────────────────────────────────────
   openModal(): void  {
-    this.modalOpen.set(true);
+    this.plantSelectorOpen.set(true);
   }
 
   closeModal(): void {
-    this.modalOpen.set(false);
+    this.plantSelectorOpen.set(false);
   }
   closeModalBackdrop(e: MouseEvent): void {
     if ((e.target as HTMLElement).classList.contains('modal-backdrop')) this.closeModal();
