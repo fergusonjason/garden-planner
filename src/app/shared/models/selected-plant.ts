@@ -8,3 +8,11 @@ export interface SelectedPlant {
     currentZone: string | null;
 
 }
+
+export const DEFAULT_SELECTED_PLANT: SelectedPlant = {
+    selectedModalKey: "tomato",
+    activePlantKey: "tomato",
+    activePlantName: "Tomato",
+    activePlantColor: "#ff6b6b",
+    currentZone: null
+};

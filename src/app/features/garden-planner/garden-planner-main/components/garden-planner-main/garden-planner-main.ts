@@ -6,7 +6,7 @@ import { PLANT_MAP } from 'src/app/shared/constants/plant-map-constants';
 import { PlantDef } from 'src/app/shared/models/plant-def';
 import { DimensionBar } from "../../../dimension-bar/dimension-bar";
 import { PlantingSelector } from '../../../planting-selector/planting-selector';
-import { SelectedPlant } from 'src/app/shared/models/selected-plant';
+import { DEFAULT_SELECTED_PLANT, SelectedPlant } from 'src/app/shared/models/selected-plant';
 
 @Component({
   selector: 'garden-planner-main',
@@ -32,7 +32,7 @@ export class GardenPlannerMain {
   dimWarning = false;
 
   // ─── Paint state ────────────────────────────────────────────────────────────
-  selectedPlant = signal<SelectedPlant | null>(null);
+  selectedPlant = signal<SelectedPlant>(DEFAULT_SELECTED_PLANT);
 
   activePlantKey    = 'tomato';
   activePlantColor: string | null = null;
