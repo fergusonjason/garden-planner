@@ -4,10 +4,10 @@ import { FormsModule } from '@angular/forms';
 import { ExportService } from 'src/app/core/services/export-service';
 import { PLANT_MAP } from 'src/app/shared/constants/plant-map-constants';
 import { PlantDef } from 'src/app/shared/models/plant-def';
-import { DimensionBar } from "../../../dimension-bar/dimension-bar";
-import { PlantingSelector } from '../../../planting-selector/planting-selector';
 import { DEFAULT_SELECTED_PLANT, SelectedPlant } from 'src/app/shared/models/selected-plant';
-import { PlantingToolbar } from '../../../components/planting-toolbar/planting-toolbar';
+import { DimensionBar } from '../dimension-bar/dimension-bar';
+import { PlantingSelector } from '../planting-selector/planting-selector';
+import { PlantingToolbar } from '../planting-toolbar/planting-toolbar';
 
 @Component({
   selector: 'garden-planner-main',
