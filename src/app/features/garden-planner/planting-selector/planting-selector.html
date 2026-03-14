@@ -1,0 +1,38 @@
+
+  <div class="modal">
+    <button class="modal-close" (click)="doClose()">✕</button>
+    <h2>Plant Spacing Guide</h2>
+    <p class="modal-sub">Click any plant to select it as your drawing color</p>
+    <table class="plant-table">
+      <thead>
+        <tr>
+          <th>Plant</th>
+          <th>Row Width *</th>
+          <th>Space Between Rows *</th>
+          <th>Notes</th>
+          <th>Command keywords</th>
+        </tr>
+      </thead>
+      <tbody>
+        @let plantKey1 = plantKey();
+        @for (entry of plantEntries; track entry.key) {
+          <tr class="clickable"
+              [class.selected-plant]="plantKey1 === entry.key"
+              [title]="'Click to draw with ' + entry.aliases[0] + ' color'"
+              (click)="doSelectPlant(entry.key)">
+            <td style="white-space:nowrap">
+              <span class="plant-color-dot" [style.background]="entry.color"></span>
+              <span class="plant-name">{{ entry.aliases[0] }}</span>
+            </td>
+            <td class="plant-num">{{ entry.rowWidth }} ft</td>
+            <td class="plant-num">{{ entry.gap - entry.rowWidth }} ft</td>
+            <td class="plant-notes">{{ entry.notes }}</td>
+            <td class="plant-aliases">{{ entry.aliases.slice(0, 4).join(', ') }}</td>
+          </tr>
+        }
+      </tbody>
+    </table>
+    <p style="margin-top:14px; font-size:0.65rem; color:rgba(245,240,232,0.35); letter-spacing:0.06em;">
+      * Values are recommendations based on common gardening practice and may vary by variety, soil, and climate.
+    </p>
+  </div>
