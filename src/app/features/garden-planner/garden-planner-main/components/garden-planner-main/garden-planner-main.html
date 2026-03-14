@@ -70,51 +70,13 @@
 </div>
 
 <!-- Plant Spacing Modal -->
- @if (modalOpen()) {
-    <div class="modal-backdrop" [class.open]="modalOpen()" (click)="closeModal()">
+ @let plantSelectorOpen1 = plantSelectorOpen();
+ @if (plantSelectorOpen1) {
+    <div class="modal-backdrop" [class.open]="plantSelectorOpen1" (click)="closeModal()">
       <garden-planner-planting-selector (selectPlant)="doSelectPlant($event)"/>
     </div>
-   <!-- <garden-planner-planting-selector (selectPlant)="selectPlantFromModal($event)"></garden-planner-planting-selector> -->
  }
- <!-- @let modalOpen1 = modalOpen();
-<div class="modal-backdrop" [class.open]="modalOpen1" (click)="closeModalBackdrop($event)">
-  <div class="modal">
-    <button class="modal-close" (click)="closeModal()">✕</button>
-    <h2>Plant Spacing Guide</h2>
-    <p class="modal-sub">Click any plant to select it as your drawing color</p>
-    <table class="plant-table">
-      <thead>
-        <tr>
-          <th>Plant</th>
-          <th>Row Width *</th>
-          <th>Space Between Rows *</th>
-          <th>Notes</th>
-          <th>Command keywords</th>
-        </tr>
-      </thead>
-      <tbody>
-        @for (entry of plantEntries; track entry.key) {
-          <tr class="clickable"
-              [class.selected-plant]="selectedModalKey === entry.key"
-              [title]="'Click to draw with ' + entry.aliases[0] + ' color'"
-              (click)="selectPlantFromModal(entry.key)">
-            <td style="white-space:nowrap">
-              <span class="plant-color-dot" [style.background]="entry.color"></span>
-              <span class="plant-name">{{ entry.aliases[0] }}</span>
-            </td>
-            <td class="plant-num">{{ entry.rowWidth }} ft</td>
-            <td class="plant-num">{{ entry.gap - entry.rowWidth }} ft</td>
-            <td class="plant-notes">{{ entry.notes }}</td>
-            <td class="plant-aliases">{{ entry.aliases.slice(0, 4).join(', ') }}</td>
-          </tr>
-        }
-      </tbody>
-    </table>
-    <p style="margin-top:14px; font-size:0.65rem; color:rgba(245,240,232,0.35); letter-spacing:0.06em;">
-      * Values are recommendations based on common gardening practice and may vary by variety, soil, and climate.
-    </p>
-  </div>
-</div> -->
+
 
 <!-- Right-click context menu -->
 <div class="ctx-menu" [class.open]="ctxMenuOpen"
