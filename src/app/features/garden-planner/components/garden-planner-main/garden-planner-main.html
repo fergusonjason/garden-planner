@@ -73,20 +73,13 @@
         (selectQuickPickPlant)="selectQuickPick($event)"/>
  }
 
-<!-- Clear confirmation dialog -->
-<!-- <div class="dialog-backdrop" [class.open]="clearDialogOpen" (click)="closeClearDialog($event)">
-  <div class="dialog">
-    <h3>Clear Garden</h3>
-    <p>This will erase the entire garden and cannot be undone.</p>
-<div class="dialog-actions">
-  <button class="btn-action btn-danger" (click)="clearGarden()">Clear All</button>
-  <button class="btn-action ghost" (click)="cancelClear()">Cancel</button>
-</div>
-  </div>
-</div> -->
-
 <footer>
-  <a href="https://github.com/fergusonjason/garden-planner" target="_blank" rel="noopener">
-    ⌥ source code on github
-  </a>
+  <div class="alignCenter">
+    <p>Application Version: {{ applicationVersion }}</p>
+  </div>
+  <div class="alignCenter">
+    <a href="https://github.com/fergusonjason/garden-planner" target="_blank" rel="noopener">
+      ⌥ source code on github
+    </a>
+  </div>
 </footer>
