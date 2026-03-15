@@ -33,23 +33,7 @@ body {
   padding: 28px 20px 48px;
 }
 
-.alignCenter {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
 
-.alignLeft {
-  display: flex;
-  align-items: flex-start;
-  justify-content: flex-start;
-}
-
-.alignRight {
-  display: flex;
-  align-items: flex-end;
-  justify-content: flex-end;
-}
 
 
 

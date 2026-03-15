@@ -11,6 +11,7 @@ import { PlantingSelector } from '../planting-selector/planting-selector';
 import { PlantingToolbar } from '../planting-toolbar/planting-toolbar';
 import { DialogService } from 'src/app/shared/services/dialog-service';
 import { APPLICATION_VERSION } from 'src/app/core/tokens/application-version.token';
+import { InstructionsComponent } from '../../instructions-component/instructions.component';
 
 @Component({
   selector: 'garden-planner-main',
@@ -134,6 +135,15 @@ private keydownListener = (e: KeyboardEvent) => {
     this.rows.set(e.rows);
     this.dimWarning = false;
     this.buildGrid();
+  }
+
+  doOpenInstructions(): void {
+    this.dialogService.createDialog()
+      .setTitle('Garden Planner Instructions')
+      .setDialogContent(InstructionsComponent)
+      .setWidth('800px')
+      .addAction('Close', () => this.dialogService.closeDialog())
+      .open();
   }
 
   // ─── Grid ───────────────────────────────────────────────────────────────────
