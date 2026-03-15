@@ -10,6 +10,7 @@ import { DimensionBar } from '../dimension-bar/dimension-bar';
 import { PlantingSelector } from '../planting-selector/planting-selector';
 import { PlantingToolbar } from '../planting-toolbar/planting-toolbar';
 import { DialogService } from 'src/app/shared/services/dialog-service';
+import { APPLICATION_VERSION } from 'src/app/core/tokens/application-version.token';
 
 @Component({
   selector: 'garden-planner-main',
@@ -27,6 +28,8 @@ export class GardenPlannerMain {
 
   private exportService:ExportService = inject(ExportService);
   private dialogService = inject(DialogService);
+
+  applicationVersion = inject(APPLICATION_VERSION);
 
   readonly defaultCols = 40;
   readonly defaultRows = 40;
