@@ -35,7 +35,8 @@
 
 <!-- Info bar -->
 <div class="info-bar">
-  <span id="area-display">Planted: 0 sq ft</span>
+  @let paintedCount1 = paintedCount();
+  <span id="area-display">Planted: {{ paintedCount1 }} sq ft</span>
 </div>
 
 <!-- Command bar -->
@@ -73,16 +74,16 @@
  }
 
 <!-- Clear confirmation dialog -->
-<div class="dialog-backdrop" [class.open]="clearDialogOpen" (click)="closeClearDialog($event)">
+<!-- <div class="dialog-backdrop" [class.open]="clearDialogOpen" (click)="closeClearDialog($event)">
   <div class="dialog">
     <h3>Clear Garden</h3>
     <p>This will erase the entire garden and cannot be undone.</p>
 <div class="dialog-actions">
-  <button class="btn-action btn-danger" (click)="confirmClear()">Clear All</button>
+  <button class="btn-action btn-danger" (click)="clearGarden()">Clear All</button>
   <button class="btn-action ghost" (click)="cancelClear()">Cancel</button>
 </div>
   </div>
-</div>
+</div> -->
 
 <footer>
   <a href="https://github.com/fergusonjason/garden-planner" target="_blank" rel="noopener">
