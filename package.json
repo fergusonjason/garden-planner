@@ -1,6 +1,6 @@
 {
   "name": "garden-planner",
-  "version": "0.2.1",
+  "version": "0.2.0",
   "scripts": {
     "ng": "ng",
     "start": "ng serve",
@@ -26,6 +26,7 @@
     "@angular-devkit/build-angular": "^21.0.0",
     "@angular/cli": "^21.0.0",
     "@angular/compiler-cli": "^21.0.0",
+    "angular-cli-ghpages": "^3.0.2",
     "typescript": "~5.9.0"
   }
 }

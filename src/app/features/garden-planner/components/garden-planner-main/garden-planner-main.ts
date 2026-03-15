@@ -1,5 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { Component, computed, inject, signal } from '@angular/core';
+
 import { ExportService } from 'src/app/core/services/export-service';
 import { ContextMenu } from 'src/app/features/garden-planner-main/components/context-menu/context-menu';
 import { PLANT_MAP } from 'src/app/shared/constants/plant-map-constants';
@@ -285,16 +286,6 @@ private keydownListener = (e: KeyboardEvent) => {
     this.activePlantName  = $event.activePlantName;
     this.closeModal();
   }
-
-  // selectPlantFromModal(key: string): void {
-  //   const p = PLANT_MAP[key];
-  //   this.selectedModalKey = key;
-  //   this.activePlantKey   = key;
-  //   this.currentZone      = null;
-  //   this.activePlantColor = p.color;
-  //   this.activePlantName  = p.aliases[0];
-  //   this.closeModal();
-  // }
 
   clearPlantMode(): void {
     this.selectedModalKey = null;

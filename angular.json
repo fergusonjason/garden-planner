@@ -47,6 +47,9 @@
             "development": { "buildTarget": "garden-planner:build:development" }
           },
           "defaultConfiguration": "development"
+        },
+        "deploy": {
+          "builder": "angular-cli-ghpages:deploy"
         }
       }
     }
