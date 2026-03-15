@@ -7,6 +7,10 @@
 <!-- Dimension controls -->
 <garden-planner-dimension-bar [initialCols]="defaultCols" [initialRows]="defaultRows" (dimensionChange)="applyDimensions($event)"/>
 
+<div class="alignCenter my-3">
+  <button class="btn-action ghost" (click)="doOpenInstructions()">📖 Instructions</button>
+</div>
+
 <!-- Paint toolbar -->
 <garden-planner-planting-toolbar [selectedPlant]="selectedPlant()" (selectPlant)="doSelectPlant($event)"/>
 
