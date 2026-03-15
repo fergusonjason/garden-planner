@@ -1,14 +1,16 @@
 # Garden Planner
 
-This started as a Claude-generated garden planning application, I'll be deslopping it as I adapt it
-to fit my needs.
+This started as an AI created app, currently in the process of being rewritten as an Angular application 
+and removing the AI slop.
+
+## Current Progress
+
+The 0.2.x release will be dedicated to removing the AI slop, creating reussable components, etc.
 
 ## How This Came About
 
-This started as me trying to tell Claude to generate me a PDF of a grid garden layout, Claude
-generated an javascript-plotting application instead. I didn't actually mean to vibe code a
-garden-planning application.
+I asked Claude to generate a PDF representing a garden layout, Claude generated an application to
+create the layout instead. It kind of met my needs but I'm working on it to remove the vibe-code 
+aura.
 
-## Future plans
 
-I'm going to convert this over to an Angular application since that's my usual framework.
