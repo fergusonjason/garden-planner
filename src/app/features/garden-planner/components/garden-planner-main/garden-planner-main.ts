@@ -8,6 +8,7 @@ import { DEFAULT_SELECTED_PLANT, SelectedPlant } from 'src/app/shared/models/sel
 import { DimensionBar } from '../dimension-bar/dimension-bar';
 import { PlantingSelector } from '../planting-selector/planting-selector';
 import { PlantingToolbar } from '../planting-toolbar/planting-toolbar';
+import { DialogService } from 'src/app/shared/services/dialog-service';
 
 @Component({
   selector: 'garden-planner-main',
@@ -24,6 +25,7 @@ import { PlantingToolbar } from '../planting-toolbar/planting-toolbar';
 export class GardenPlannerMain {
 
   private exportService:ExportService = inject(ExportService);
+  private dialogService = inject(DialogService);
 
   readonly defaultCols = 40;
   readonly defaultRows = 40;
@@ -53,7 +55,8 @@ export class GardenPlannerMain {
   currentZone: string | null      = null;
   selectedModalKey: string | null = null;
   isPainting = false;
-  paintedCount = 0;
+  paintedCount = signal<number>(0);
+  // paintedCount = 0;
   nextCol = 0;
   nextRow = 0;
   straightLockRow: number | null = null;
@@ -147,13 +150,10 @@ private keydownListener = (e: KeyboardEvent) => {
     const cols = this.cols();
     const rows = this.rows();
 
-        grid.style.gridTemplateColumns = `repeat(${cols}, var(--cell-size))`;
+    grid.style.gridTemplateColumns = `repeat(${cols}, var(--cell-size))`;
     grid.style.gridTemplateRows    = `repeat(${rows}, var(--cell-size))`;
-    // grid.style.gridTemplateColumns = `repeat(${this.cols}, var(--cell-size))`;
-    // grid.style.gridTemplateRows    = `repeat(${this.rows}, var(--cell-size))`;
 
     for (let c = 0; c < cols; c++) {
-    // for (let c = 0; c < this.cols; c++) {
       const d = document.createElement('div');
       d.className = 'ruler-cell' + ((c + 1) % 5 === 0 ? ' labeled' : '');
       d.textContent = (c + 1) % 5 === 0 ? String(c + 1) : '';
@@ -252,10 +252,9 @@ private keydownListener = (e: KeyboardEvent) => {
       this.openCtxMenu(e.clientX, e.clientY);
     });
 
-    this.paintedCount = 0;
+    this.paintedCount.set(0);
     this.nextCol = 0;
     this.nextRow = 0;
-    this.setAreaDisplay();
     this.setFeedback('', '');
   }
 
@@ -287,15 +286,15 @@ private keydownListener = (e: KeyboardEvent) => {
     this.closeModal();
   }
 
-  selectPlantFromModal(key: string): void {
-    const p = PLANT_MAP[key];
-    this.selectedModalKey = key;
-    this.activePlantKey   = key;
-    this.currentZone      = null;
-    this.activePlantColor = p.color;
-    this.activePlantName  = p.aliases[0];
-    this.closeModal();
-  }
+  // selectPlantFromModal(key: string): void {
+  //   const p = PLANT_MAP[key];
+  //   this.selectedModalKey = key;
+  //   this.activePlantKey   = key;
+  //   this.currentZone      = null;
+  //   this.activePlantColor = p.color;
+  //   this.activePlantName  = p.aliases[0];
+  //   this.closeModal();
+  // }
 
   clearPlantMode(): void {
     this.selectedModalKey = null;
@@ -306,7 +305,7 @@ private keydownListener = (e: KeyboardEvent) => {
     const hadColor = cell.dataset['zone'] || cell.dataset['customColor'];
 
     if (this.activePlantColor) {
-      if (!hadColor) this.paintedCount++;
+      if (!hadColor) this.paintedCount.update(c => c + 1);
       cell.style.background       = this.activePlantColor;
       cell.dataset['zone']        = 'custom';
       cell.dataset['customColor'] = this.activePlantColor;
@@ -314,12 +313,12 @@ private keydownListener = (e: KeyboardEvent) => {
       this.eraseCell(cell);
       return;
     } else if (this.currentZone) {
-      if (!hadColor) this.paintedCount++;
+      if (!hadColor) this.paintedCount.update(c => c + 1);
       cell.dataset['zone'] = this.currentZone;
       delete cell.dataset['customColor'];
       cell.style.background = '';
     }
-    this.setAreaDisplay();
+
   }
 
   eraseCell(cell: HTMLElement): void {
@@ -327,40 +326,35 @@ private keydownListener = (e: KeyboardEvent) => {
       delete cell.dataset['zone'];
       delete cell.dataset['customColor'];
       cell.style.background = '';
-      this.paintedCount = Math.max(0, this.paintedCount - 1);
-      this.setAreaDisplay();
+      this.paintedCount.update(c => Math.max(0, c - 1));
+
     }
   }
 
-  // ─── Clear ──────────────────────────────────────────────────────────────────
-clearGrid(): void {
-  this.clearDialogOpen = true;
-}
+  // ─── Clear Dialog ──────────────────────────────────────────────────────────────────
+  clearGrid(): void {
 
-closeClearDialog(e: MouseEvent): void {
-  if ((e.target as HTMLElement).classList.contains('dialog-backdrop')) {
-    this.clearDialogOpen = false;
+    this.dialogService.createDialog()
+      .setTitle('Clear Garden')
+      .setDialogContent('Are you sure you want to clear the entire garden? This action cannot be undone.')
+      .addAction('Cancel')
+      .addAction('Clear', () => this.clearGarden())
+      .open();
   }
-}
 
-cancelClear(): void {
-  this.clearDialogOpen = false;
-}
-
-confirmClear(): void {
-  this.clearDialogOpen = false;
-  document.querySelectorAll('.cell').forEach((c: Element) => {
-    const el = c as HTMLElement;
-    delete el.dataset['zone'];
-    delete el.dataset['customColor'];
-    el.style.background = '';
-  });
-  this.paintedCount = 0;
-  this.nextCol = 0;
-  this.nextRow = 0;
-  this.setAreaDisplay();
-  this.setFeedback('', '');
-}
+  private clearGarden(): void {
+    this.clearDialogOpen = false;
+    document.querySelectorAll('.cell').forEach((c: Element) => {
+      const el = c as HTMLElement;
+      delete el.dataset['zone'];
+      delete el.dataset['customColor'];
+      el.style.background = '';
+    });
+    this.paintedCount.set(0);
+    this.nextCol = 0;
+    this.nextRow = 0;
+    this.setFeedback('', '');
+  }
 
   // ─── Modal ──────────────────────────────────────────────────────────────────
   openModal(): void  {
@@ -433,7 +427,7 @@ confirmClear(): void {
           const idx  = isVert ? (cross * this.cols() + along) : (along * this.cols() + cross);
           const cell = cells[idx] as HTMLElement;
           if (!cell) continue;
-          if (!cell.dataset['customColor'] && !cell.dataset['zone']) this.paintedCount++;
+          if (!cell.dataset['customColor'] && !cell.dataset['zone']) this.paintedCount.update(c => c + 1);
           cell.style.background       = plant.color;
           cell.dataset['zone']        = 'custom';
           cell.dataset['customColor'] = plant.color;
@@ -445,7 +439,6 @@ confirmClear(): void {
     if (isVert) { if (endPos > this.nextCol) this.nextCol = endPos; }
     else         { if (endPos > this.nextRow) this.nextRow = endPos; }
 
-    this.setAreaDisplay();
     const axis     = isVert ? 'X' : 'Y';
     const nextFree = isVert ? this.nextCol : this.nextRow;
     return {
@@ -456,6 +449,7 @@ confirmClear(): void {
 
 
   // ─── .garden export / import ─────────────────────────────────────────────────
+  // TODO: Convert this to a JSON-based format instead of XML, and add support for plant-specific metadata (e.g. variety, planting date, etc.)
   private buildXML(): string {
     const cells = document.querySelectorAll('.cell');
     const lines = [`<?xml version="1.0" encoding="UTF-8"?>`, `<garden width="${this.cols}" height="${this.rows}" version="1">`];
@@ -562,8 +556,7 @@ confirmClear(): void {
         }
       });
 
-      this.paintedCount = count;
-      this.setAreaDisplay();
+      this.paintedCount.set(count);
       this.setFeedback(`✓ Loaded ${file.name} — ${this.cols}×${this.rows} ft, ${count} sq ft planted`, 'feedback-ok');
     } catch (err: any) {
       this.setFeedback(`✗ Failed to load: ${err.message}`, 'feedback-err');
@@ -571,10 +564,7 @@ confirmClear(): void {
   }
 
   // ─── Helpers ─────────────────────────────────────────────────────────────────
-  private setAreaDisplay(): void {
-    const el = document.getElementById('area-display');
-    if (el) el.textContent = `Planted: ${this.paintedCount} sq ft`;
-  }
+
 
   setFeedback(msg: string, cls: string): void {
     const fb = document.getElementById('cmd-feedback');
