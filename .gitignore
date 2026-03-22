@@ -32,3 +32,8 @@ testem.log
 # System files
 .DS_Store
 Thumbs.db
+
+# Claude Code skills
+.agents/
+.claude/
+skills-lock.json
