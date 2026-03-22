@@ -2,16 +2,15 @@ import { CommonModule } from '@angular/common';
 import { Component, computed, inject, signal } from '@angular/core';
 
 import { ExportService } from 'src/app/core/services/export-service';
-import { ContextMenu } from 'src/app/features/garden-planner-main/components/context-menu/context-menu';
+import { APPLICATION_VERSION } from 'src/app/core/tokens/application-version.token';
 import { PLANT_MAP } from 'src/app/shared/constants/plant-map-constants';
 import { PlantDef } from 'src/app/shared/models/plant-def';
 import { DEFAULT_SELECTED_PLANT, SelectedPlant } from 'src/app/shared/models/selected-plant';
+import { DialogService } from 'src/app/shared/services/dialog-service';
 import { DimensionBar } from '../dimension-bar/dimension-bar';
 import { PlantingSelector } from '../planting-selector/planting-selector';
 import { PlantingToolbar } from '../planting-toolbar/planting-toolbar';
-import { DialogService } from 'src/app/shared/services/dialog-service';
-import { APPLICATION_VERSION } from 'src/app/core/tokens/application-version.token';
-import { InstructionsComponent } from '../../instructions-component/instructions.component';
+import { InstructionsComponent } from '../instructions-component/instructions.component';
 
 @Component({
   selector: 'garden-planner-main',
@@ -20,7 +19,6 @@ import { InstructionsComponent } from '../../instructions-component/instructions
     DimensionBar,
     PlantingSelector,
     PlantingToolbar,
-    ContextMenu
 ],
   templateUrl: './garden-planner-main.html',
   styleUrl: './garden-planner-main.css',
