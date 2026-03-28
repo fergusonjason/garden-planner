@@ -8,7 +8,7 @@
 </header>
 
 <!-- Dimension controls -->
-<garden-planner-dimension-bar [initialCols]="defaultCols" [initialRows]="defaultRows" (dimensionChange)="applyDimensions($event)"/>
+<garden-planner-dimension-bar [dimensionsFormGroup]="dimensionsFormGroup" (dimensionChange)="applyDimensions($event)"/>
 
 <div class="alignCenter my-3">
   <button class="btn-action ghost" (click)="doOpenInstructions()">📖 Instructions</button>

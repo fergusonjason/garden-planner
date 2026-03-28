@@ -1,5 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { Component, computed, inject, signal } from '@angular/core';
+import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 
 import { APPLICATION_VERSION } from 'src/app/core/tokens/application-version.token';
 import { PLANT_MAP } from 'src/app/shared/constants/plant-map-constants';
@@ -15,26 +16,32 @@ import { InstructionsComponent } from '../instructions-component/instructions.co
   selector: 'garden-planner-main',
   imports: [
     CommonModule,
+    ReactiveFormsModule,
     DimensionBar,
     PlantingSelector,
     PlantingToolbar,
-],
+  ],
   templateUrl: './garden-planner-main.html',
   styleUrl: './garden-planner-main.css',
 })
 export class GardenPlannerMain {
 
   private dialogService = inject(DialogService);
+  private formBuilder = inject(FormBuilder);
 
   applicationVersion = inject(APPLICATION_VERSION);
 
   readonly defaultCols = 40;
   readonly defaultRows = 40;
 
+  dimensionsFormGroup = this.formBuilder.group({
+    cols: [this.defaultCols, [Validators.required, Validators.min(5), Validators.max(200)]],
+    rows: [this.defaultRows, [Validators.required, Validators.min(5), Validators.max(200)]],
+  });
+
   // ─── Grid dimensions ────────────────────────────────────────────────────────
   cols = signal<number>(this.defaultCols);
   rows = signal<number>(this.defaultRows);
-  dimWarning = false;
 
   subtitle = computed<string>(() => {
 
@@ -88,10 +95,6 @@ private keydownListener = (e: KeyboardEvent) => {
     document.addEventListener('mouseup', this.mouseUpListener);
     document.addEventListener('keydown', this.keydownListener);
 
-    ['inp-cols', 'inp-rows'].forEach(id => {
-      document.getElementById(id)?.addEventListener('input', () => { this.dimWarning = true; });
-    });
-
     this.buildGrid();
   }
 
@@ -104,7 +107,6 @@ private keydownListener = (e: KeyboardEvent) => {
   applyDimensions(e: { cols: number, rows: number }): void {
     this.cols.set(e.cols);
     this.rows.set(e.rows);
-    this.dimWarning = false;
     this.buildGrid();
   }
 
