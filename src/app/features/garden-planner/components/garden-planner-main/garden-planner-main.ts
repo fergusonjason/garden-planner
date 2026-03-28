@@ -1,7 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { Component, computed, inject, signal } from '@angular/core';
 
-import { ExportService } from 'src/app/core/services/export-service';
 import { APPLICATION_VERSION } from 'src/app/core/tokens/application-version.token';
 import { PLANT_MAP } from 'src/app/shared/constants/plant-map-constants';
 import { PlantDef } from 'src/app/shared/models/plant-def';
@@ -25,7 +24,6 @@ import { InstructionsComponent } from '../instructions-component/instructions.co
 })
 export class GardenPlannerMain {
 
-  private exportService:ExportService = inject(ExportService);
   private dialogService = inject(DialogService);
 
   applicationVersion = inject(APPLICATION_VERSION);
@@ -64,11 +62,6 @@ export class GardenPlannerMain {
   clearDialogOpen = false;
   plantSelectorDialogOpen = signal<boolean>(false);
 
-  // ─── Context menu ────────────────────────────────────────────────────────────
-  ctxMenuOpen = signal<boolean>(false);
-  ctxMenuX    = signal<number>(0);
-  ctxMenuY    = signal<number>(0);
-
   // ─── Plant data exposed to template ─────────────────────────────────────────
   readonly plantEntries: PlantDef[] = Object.entries(PLANT_MAP).map(([key, p]) => ({ key, ...p }));
 
@@ -84,17 +77,9 @@ export class GardenPlannerMain {
 private keydownListener = (e: KeyboardEvent) => {
   if (e.key === 'Escape') {
     this.closeModal();
-    this.closeCtxMenu();
     this.clearDialogOpen = false;
   }
 };
-
-  private docClickListener = (e: MouseEvent) => {
-    const menu = document.querySelector('.ctx-menu');
-    if (menu && !menu.contains(e.target as Node)) {
-      this.closeCtxMenu();
-    }
-  };
 
   private gridMouseMoveListener: ((e: MouseEvent) => void) | null = null;
 
@@ -102,7 +87,6 @@ private keydownListener = (e: KeyboardEvent) => {
   ngAfterViewInit(): void {
     document.addEventListener('mouseup', this.mouseUpListener);
     document.addEventListener('keydown', this.keydownListener);
-    document.addEventListener('click', this.docClickListener);
 
     ['inp-cols', 'inp-rows'].forEach(id => {
       document.getElementById(id)?.addEventListener('input', () => { this.dimWarning = true; });
@@ -114,7 +98,6 @@ private keydownListener = (e: KeyboardEvent) => {
   ngOnDestroy(): void {
     document.removeEventListener('mouseup', this.mouseUpListener);
     document.removeEventListener('keydown', this.keydownListener);
-    document.removeEventListener('click', this.docClickListener);
   }
 
   // ─── Dimensions ─────────────────────────────────────────────────────────────
@@ -332,25 +315,6 @@ private keydownListener = (e: KeyboardEvent) => {
   }
   closeModalBackdrop(e: MouseEvent): void {
     if ((e.target as HTMLElement).classList.contains('modal-backdrop')) this.closeModal();
-  }
-
-  // ─── Context menu ────────────────────────────────────────────────────────────
-  openCtxMenu(x: number, y: number): void {
-    const menuW = 180, menuH = 160;
-    this.ctxMenuX.set(x + menuW > window.innerWidth  ? x - menuW : x);
-    this.ctxMenuY.set(y + menuH > window.innerHeight ? y - menuH : y);
-    this.ctxMenuOpen.set(true);
-  }
-
-  closeCtxMenu(): void {
-    this.ctxMenuOpen.set(false);
-  }
-
-  ctxExportPNG(): void { this.exportService.exportPNG(this.cols(), this.rows()); }
-  ctxExportPDF(): void { this.exportService.exportPDF(); }
-
-  selectQuickPick(key: string): void {
-    this.selectToolbarPlant(key);
   }
 
   // ─── Plant command ───────────────────────────────────────────────────────────
