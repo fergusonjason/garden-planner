@@ -13,6 +13,7 @@ export class PlantingToolbar {
   selectedPlant = input.required<SelectedPlant>();
 
   selectPlant = output<SelectedPlant>();
+  openPlantSelector = output<void>();
 
   activePlantKey = computed<string>(() => this.selectedPlant().plant.key);
 

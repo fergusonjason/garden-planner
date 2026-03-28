@@ -9,8 +9,8 @@
           <th>Plant</th>
           <th>Row Width *</th>
           <th>Space Between Rows *</th>
+          <th>Plant Spacing *</th>
           <th>Notes</th>
-          <th>Command keywords</th>
         </tr>
       </thead>
       <tbody>
@@ -26,8 +26,8 @@
             </td>
             <td class="plant-num">{{ entry.rowWidth }} ft</td>
             <td class="plant-num">{{ entry.gap - entry.rowWidth }} ft</td>
+            <td class="plant-num">{{ entry.inRowSpacing }} in</td>
             <td class="plant-notes">{{ entry.notes }}</td>
-            <td class="plant-aliases">{{ entry.aliases.slice(0, 4).join(', ') }}</td>
           </tr>
         }
       </tbody>

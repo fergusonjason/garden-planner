@@ -15,7 +15,7 @@
 </div>
 
 <!-- Paint toolbar -->
-<garden-planner-planting-toolbar [selectedPlant]="selectedPlant()" (selectPlant)="doSelectPlant($event)"/>
+<garden-planner-planting-toolbar [selectedPlant]="selectedPlant()" (selectPlant)="doSelectPlant($event)" (openPlantSelector)="openModal()"/>
 
 <!-- Active plant indicator -->
  @let activePlant = selectedPlant();
@@ -49,10 +49,6 @@
   <span id="area-display">Planted: {{ paintedCount1 }} sq ft</span>
 </div>
 
-<!-- Command bar -->
-<div class="command-bar">
-  <button class="btn-action ghost" (click)="openModal()">📋 Plant Selector</button>
-</div>
 <div id="cmd-feedback"></div>
 
 <!-- Actions -->

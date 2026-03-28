@@ -319,64 +319,6 @@ private keydownListener = (e: KeyboardEvent) => {
     if ((e.target as HTMLElement).classList.contains('modal-backdrop')) this.closeModal();
   }
 
-  // ─── Plant command ───────────────────────────────────────────────────────────
-  findPlant(text: string): PlantDef | null {
-    const t = text.toLowerCase();
-    for (const [key, p] of Object.entries(PLANT_MAP)) {
-      if (p.aliases.some(a => t.includes(a))) return { key, ...p };
-    }
-    return null;
-  }
-
-  createRows(count: number, plant: PlantDef, startAt: number | null, orientation: string, endAt: number | null): { ok: boolean; msg: string } {
-    const isVert = orientation === 'vertical';
-    const cells  = document.querySelectorAll('.cell');
-    const sep    = plant.gap - plant.rowWidth;
-    const limit  = isVert ? this.cols() : this.rows();
-    const start  = startAt !== null ? startAt : (isVert ? this.nextCol : this.nextRow);
-
-    let resolvedCount = count;
-    if (endAt !== null) {
-      const span = endAt - start;
-      if (span <= 0) return { ok: false, msg: '✗ End position must be greater than start position.' };
-      resolvedCount = Math.floor((span - plant.rowWidth) / plant.gap) + 1;
-      if (resolvedCount < 1) resolvedCount = 1;
-    }
-
-    const totalSpan = plant.rowWidth + (resolvedCount - 1) * plant.gap;
-    if (start + totalSpan > limit) {
-      return { ok: false, msg: `✗ Not enough space — only ${limit - start} ft remaining from ${isVert ? 'X' : 'Y'}=${start + 1}.` };
-    }
-
-    for (let i = 0; i < resolvedCount; i++) {
-      const lineStart = start + i * plant.gap;
-      const crossLimit = isVert ? this.rows() : this.cols();
-      for (let cross = 0; cross < crossLimit; cross++) {
-        for (let w = 0; w < plant.rowWidth; w++) {
-          const along = lineStart + w;
-          if (along >= limit) continue;
-          const idx  = isVert ? (cross * this.cols() + along) : (along * this.cols() + cross);
-          const cell = cells[idx] as HTMLElement;
-          if (!cell) continue;
-          if (!cell.dataset['customColor'] && !cell.dataset['zone']) this.paintedCount.update(c => c + 1);
-          cell.style.background       = plant.color;
-          cell.dataset['zone']        = 'custom';
-          cell.dataset['customColor'] = plant.color;
-        }
-      }
-    }
-
-    const endPos = start + totalSpan;
-    if (isVert) { if (endPos > this.nextCol) this.nextCol = endPos; }
-    else         { if (endPos > this.nextRow) this.nextRow = endPos; }
-
-    const axis     = isVert ? 'X' : 'Y';
-    const nextFree = isVert ? this.nextCol : this.nextRow;
-    return {
-      ok: true,
-      msg: `✓ Planted ${resolvedCount} ${orientation} row${resolvedCount > 1 ? 's' : ''} of ${plant.aliases[0]} — ${plant.rowWidth}ft wide, ${sep}ft gap — ${axis}=${start + 1}–${endPos}ft. Next free: ${axis}=${nextFree + 1}ft.`
-    };
-  }
 
 
   // ─── .garden export / import ─────────────────────────────────────────────────
