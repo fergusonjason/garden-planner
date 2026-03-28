@@ -18,12 +18,13 @@
 <garden-planner-planting-toolbar [selectedPlant]="selectedPlant()" (selectPlant)="doSelectPlant($event)"/>
 
 <!-- Active plant indicator -->
+ @let activePlant = selectedPlant();
  <div class="alignCenter">
-   <div id="plant-active-bar" [style.display]="activePlantColor ? 'flex' : 'none'"
+   <div id="plant-active-bar" [style.display]="activePlant.currentZone !== 'erase' ? 'flex' : 'none'"
         style="align-items:center; gap:8px; margin-bottom:14px; font-size:0.74rem; letter-spacing:0.08em; color:var(--cream);">
      <span style="color:var(--accent); font-size:0.62rem; letter-spacing:0.14em; font-weight:700;">DRAWING</span>
-     <span [style.background]="activePlantColor" style="width:12px;height:12px;border-radius:50%;display:inline-block;"></span>
-     <span>{{ activePlantName }}</span>
+     <span [style.background]="activePlant.plant.color" style="width:12px;height:12px;border-radius:50%;display:inline-block;"></span>
+     <span>{{ activePlant.plant.aliases[0] }}</span>
      <button (click)="clearPlantMode()" style="background:none;border:none;color:rgba(245,240,232,0.4);cursor:pointer;font-size:0.72rem;margin-left:4px;letter-spacing:0.06em;">✕ clear</button>
    </div>
  </div>

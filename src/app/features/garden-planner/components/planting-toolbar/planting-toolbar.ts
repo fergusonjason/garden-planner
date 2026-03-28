@@ -14,7 +14,7 @@ export class PlantingToolbar {
 
   selectPlant = output<SelectedPlant>();
 
-  activePlantKey = computed<string>(() => this.selectedPlant().activePlantKey);
+  activePlantKey = computed<string>(() => this.selectedPlant().plant.key);
 
   currentZone = computed<string | null>(() => this.selectedPlant().currentZone);
 
@@ -28,18 +28,9 @@ export class PlantingToolbar {
   ];
 
   doSelectPlant(key: string): void {
-
-    const p = PLANT_MAP[key];
-
-    const selectedPlant: SelectedPlant = {
-      selectedModalKey: key,
-      activePlantKey: key,
-      activePlantColor: p.color,
-      activePlantName: p.aliases[0],
+    this.selectPlant.emit({
+      plant: { key, ...PLANT_MAP[key] },
       currentZone: this.currentZone(),
-    };
-
-    this.selectPlant.emit(selectedPlant);
-
+    });
   }
 }

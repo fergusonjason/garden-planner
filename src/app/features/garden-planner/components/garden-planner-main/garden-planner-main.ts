@@ -5,7 +5,7 @@ import { ExportService } from 'src/app/core/services/export-service';
 import { APPLICATION_VERSION } from 'src/app/core/tokens/application-version.token';
 import { PLANT_MAP } from 'src/app/shared/constants/plant-map-constants';
 import { PlantDef } from 'src/app/shared/models/plant-def';
-import { DEFAULT_SELECTED_PLANT, SelectedPlant } from 'src/app/shared/models/selected-plant';
+import { SelectedPlant } from 'src/app/shared/models/selected-plant';
 import { DialogService } from 'src/app/shared/services/dialog-service';
 import { DimensionBar } from '../dimension-bar/dimension-bar';
 import { PlantingSelector } from '../planting-selector/planting-selector';
@@ -50,16 +50,10 @@ export class GardenPlannerMain {
 
   // ─── Paint state ────────────────────────────────────────────────────────────
   // TODO: Stop using the individual activePlant* properties and just derive them from the selectedPlant signal
-  selectedPlant = signal<SelectedPlant>(DEFAULT_SELECTED_PLANT);
+  selectedPlant = signal<SelectedPlant>({ plant: { key: 'tomato', ...PLANT_MAP['tomato'] }, currentZone: null });
 
-  /* @deprecated("use the selected plant signal") */ activePlantKey    = 'tomato';
-  activePlantColor: string | null = null;
-  activePlantName: string | null  = null;
-  currentZone: string | null      = null;
-  selectedModalKey: string | null = null;
   isPainting = false;
   paintedCount = signal<number>(0);
-  // paintedCount = 0;
   nextCol = 0;
   nextRow = 0;
   straightLockRow: number | null = null;
@@ -115,10 +109,6 @@ private keydownListener = (e: KeyboardEvent) => {
     });
 
     this.buildGrid();
-
-    // Default to tomatoes selected
-    this.activePlantColor = PLANT_MAP['tomato'].color;
-    this.activePlantName  = 'tomatoes';
   }
 
   ngOnDestroy(): void {
@@ -259,11 +249,6 @@ private keydownListener = (e: KeyboardEvent) => {
     };
     grid.addEventListener('mousemove', this.gridMouseMoveListener);
 
-    grid.addEventListener('contextmenu', (e: MouseEvent) => {
-      e.preventDefault();
-      this.openCtxMenu(e.clientX, e.clientY);
-    });
-
     this.paintedCount.set(0);
     this.nextCol = 0;
     this.nextRow = 0;
@@ -272,55 +257,34 @@ private keydownListener = (e: KeyboardEvent) => {
 
   // ─── Paint ──────────────────────────────────────────────────────────────────
   selectToolbarPlant(key: string): void {
-    this.activePlantKey   = key;
-    this.selectedModalKey = null;
-
     if (key === 'erase') {
-      this.currentZone      = 'erase';
-      this.activePlantColor = null;
-      this.activePlantName  = null;
+      this.selectedPlant.update(sp => ({ ...sp, currentZone: 'erase' }));
     } else {
-      const p = PLANT_MAP[key];
-      this.currentZone      = null;
-      this.activePlantColor = p.color;
-      this.activePlantName  = p.aliases[0];
+      this.selectedPlant.set({ plant: { key, ...PLANT_MAP[key] }, currentZone: null });
     }
   }
 
   doSelectPlant($event: SelectedPlant): void {
     this.selectedPlant.set($event);
-
-    this.selectedModalKey = $event.selectedModalKey;
-    this.activePlantKey   = $event.activePlantKey;
-    this.currentZone      = $event.currentZone;
-    this.activePlantColor = $event.activePlantColor;
-    this.activePlantName  = $event.activePlantName;
     this.closeModal();
   }
 
   clearPlantMode(): void {
-    this.selectedModalKey = null;
     this.selectToolbarPlant('tomato');
   }
 
   paintCell(cell: HTMLElement): void {
-    const hadColor = cell.dataset['zone'] || cell.dataset['customColor'];
-
-    if (this.activePlantColor) {
-      if (!hadColor) this.paintedCount.update(c => c + 1);
-      cell.style.background       = this.activePlantColor;
-      cell.dataset['zone']        = 'custom';
-      cell.dataset['customColor'] = this.activePlantColor;
-    } else if (this.currentZone === 'erase') {
+    const selected = this.selectedPlant();
+    if (selected.currentZone === 'erase') {
       this.eraseCell(cell);
       return;
-    } else if (this.currentZone) {
-      if (!hadColor) this.paintedCount.update(c => c + 1);
-      cell.dataset['zone'] = this.currentZone;
-      delete cell.dataset['customColor'];
-      cell.style.background = '';
     }
-
+    const color = selected.plant.color;
+    const hadColor = cell.dataset['zone'] || cell.dataset['customColor'];
+    if (!hadColor) this.paintedCount.update(c => c + 1);
+    cell.style.background       = color;
+    cell.dataset['zone']        = 'custom';
+    cell.dataset['customColor'] = color;
   }
 
   eraseCell(cell: HTMLElement): void {
@@ -382,12 +346,11 @@ private keydownListener = (e: KeyboardEvent) => {
     this.ctxMenuOpen.set(false);
   }
 
-  ctxExportPNG(): void { this.closeCtxMenu(); this.exportService.exportPNG(this.cols(), this.rows()); }
-  ctxExportPDF(): void { this.closeCtxMenu(); this.exportService.exportPDF(); }
+  ctxExportPNG(): void { this.exportService.exportPNG(this.cols(), this.rows()); }
+  ctxExportPDF(): void { this.exportService.exportPDF(); }
 
   selectQuickPick(key: string): void {
     this.selectToolbarPlant(key);
-    this.closeCtxMenu();
   }
 
   // ─── Plant command ───────────────────────────────────────────────────────────

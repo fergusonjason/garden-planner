@@ -21,21 +21,11 @@ export class PlantingSelector {
 
   readonly plantEntries: PlantDef[] = Object.entries(PLANT_MAP).map(([key, p]) => ({ key, ...p }));
 
-
   doSelectPlant(key: string): void {
-
-    const p = PLANT_MAP[key];
-
-    const selectedPlant: SelectedPlant = {
-      selectedModalKey: key,
-      activePlantKey: key,
-      activePlantColor: p.color,
-      activePlantName: p.aliases[0],
+    this.selectPlant.emit({
+      plant: { key, ...PLANT_MAP[key] },
       currentZone: this.currentZone(),
-    };
-
-    this.selectPlant.emit(selectedPlant);
-
+    });
   }
 
   doClose(): void {
