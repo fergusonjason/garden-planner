@@ -16,49 +16,6 @@ export interface GardenGridValue {
   cells: GardenCellData[];
 }
 
-export function buildGardenXML(value: GardenGridValue): string {
-  const { cols, rows, cells } = value;
-  const lines   = [`<?xml version="1.0" encoding="UTF-8"?>`, `<garden width="${cols}" height="${rows}" version="1">`];
-  const painted: Record<string, string> = {};
-  for (const { x, y, plant } of cells) {
-    painted[`${x},${y}`] = plant;
-  }
-  for (let r = 0; r < rows; r++) {
-    let rs = 0;
-    while (rs < cols) {
-      const plant = painted[`${rs},${r}`] ?? null;
-      if (!plant) { rs++; continue; }
-      let len = 1;
-      while (rs + len < cols && painted[`${rs + len},${r}`] === plant) len++;
-      lines.push(`  <span x="${rs}" y="${r}" len="${len}" plant="${plant}"/>`);
-      rs += len;
-    }
-  }
-  lines.push('</garden>');
-  return lines.join('\n');
-}
-
-export function parseGardenXML(doc: Document): GardenGridValue {
-  const garden  = doc.querySelector('garden')!;
-  const cols    = parseInt(garden.getAttribute('width')!);
-  const rows    = parseInt(garden.getAttribute('height')!);
-  if (!cols || !rows) throw new Error('Missing width/height in .garden file');
-
-  const cells: GardenCellData[] = [];
-  doc.querySelectorAll('span').forEach(span => {
-    const x     = parseInt(span.getAttribute('x')!);
-    const y     = parseInt(span.getAttribute('y')!);
-    const len   = parseInt(span.getAttribute('len')!);
-    const plant = span.getAttribute('plant')!;
-    for (let i = 0; i < len; i++) {
-      const cx = x + i;
-      if (cx >= cols || y >= rows) continue;
-      cells.push({ x: cx, y, plant });
-    }
-  });
-
-  return { cols, rows, cells };
-}
 
 @Component({
   selector: 'garden-planner-grid',

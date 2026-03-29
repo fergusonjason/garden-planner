@@ -1,13 +1,14 @@
 import { CommonModule } from '@angular/common';
 import { Component, computed, inject, signal } from '@angular/core';
-import { FormBuilder, FormControl, ReactiveFormsModule, Validators } from '@angular/forms';
+import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
 
 import { APPLICATION_VERSION } from 'src/app/core/tokens/application-version.token';
 import { PLANT_MAP } from 'src/app/shared/constants/plant-map-constants';
 import { SelectedPlant } from 'src/app/shared/models/selected-plant';
 import { DialogService } from 'src/app/shared/services/dialog-service';
-import { DimensionBar } from '../dimension-bar/dimension-bar';
-import { buildGardenXML, GardenGrid, GardenGridValue, parseGardenXML } from '../garden-grid/garden-grid';
+import { DimensionBar, DimensionBarValue } from '../dimension-bar/dimension-bar';
+import { GardenGrid, GardenGridValue } from '../garden-grid/garden-grid';
+import { GardenService } from '../../services/garden-service';
 import { PlantingSelector } from '../planting-selector/planting-selector';
 import { PlantingToolbar } from '../planting-toolbar/planting-toolbar';
 import { InstructionsComponent } from '../instructions-component/instructions.component';
@@ -27,23 +28,25 @@ import { InstructionsComponent } from '../instructions-component/instructions.co
 })
 export class GardenPlannerMain {
 
-  private dialogService = inject(DialogService);
-  private formBuilder = inject(FormBuilder);
+  private dialogService  = inject(DialogService);
+  private formBuilder    = inject(FormBuilder);
+  private gardenService  = inject(GardenService);
 
   applicationVersion = inject(APPLICATION_VERSION);
 
   readonly defaultCols = 40;
   readonly defaultRows = 40;
 
-  dimensionsFormGroup = this.formBuilder.group({
-    cols: [this.defaultCols, [Validators.required, Validators.min(5), Validators.max(200)]],
-    rows: [this.defaultRows, [Validators.required, Validators.min(5), Validators.max(200)]],
+  planForm = this.formBuilder.group({
+    dimensions: this.formBuilder.control<DimensionBarValue>(
+      { cols: this.defaultCols, rows: this.defaultRows },
+      { nonNullable: true },
+    ),
+    gardenGridData: this.formBuilder.control<GardenGridValue>(
+      { cols: this.defaultCols, rows: this.defaultRows, cells: [] },
+      { nonNullable: true },
+    ),
   });
-
-  gardenGridControl = new FormControl<GardenGridValue>(
-    { cols: this.defaultCols, rows: this.defaultRows, cells: [] },
-    { nonNullable: true },
-  );
 
   // ─── Grid dimensions ────────────────────────────────────────────────────────
   cols = signal<number>(this.defaultCols);
@@ -82,7 +85,7 @@ export class GardenPlannerMain {
   applyDimensions(e: { cols: number, rows: number }): void {
     this.cols.set(e.cols);
     this.rows.set(e.rows);
-    this.gardenGridControl.setValue({ cols: e.cols, rows: e.rows, cells: [] });
+    this.planForm.controls.gardenGridData.setValue({ cols: e.cols, rows: e.rows, cells: [] });
   }
 
   doOpenInstructions(): void {
@@ -119,8 +122,8 @@ export class GardenPlannerMain {
       .setDialogContent('Are you sure you want to clear the entire garden? This action cannot be undone.')
       .addAction('Cancel')
       .addAction('Clear', () => {
-        const v = this.gardenGridControl.value;
-        this.gardenGridControl.setValue({ cols: v.cols, rows: v.rows, cells: [] });
+        const v = this.planForm.controls.gardenGridData.value;
+        this.planForm.controls.gardenGridData.setValue({ cols: v.cols, rows: v.rows, cells: [] });
       })
       .open();
   }
@@ -139,11 +142,10 @@ export class GardenPlannerMain {
   }
 
   // ─── .garden export / import ─────────────────────────────────────────────────
-  // TODO: Convert this to a JSON-based format instead of XML, and add support for plant-specific metadata (e.g. variety, planting date, etc.)
   async savePlan(): Promise<void> {
-    const value    = this.gardenGridControl.value;
-    const xml      = buildGardenXML(value);
-    const encoded  = new TextEncoder().encode(xml);
+    const value    = this.planForm.controls.gardenGridData.value;
+    const json     = this.gardenService.buildGardenJSON(value);
+    const encoded  = new TextEncoder().encode(json);
     const cs       = new (window as any).CompressionStream('gzip');
     const writer   = cs.writable.getWriter();
     writer.write(encoded);
@@ -170,18 +172,12 @@ export class GardenPlannerMain {
       const writer = ds.writable.getWriter();
       writer.write(new Uint8Array(buffer));
       writer.close();
-      const xml = await new Response(ds.readable).text();
-
-      const doc      = new DOMParser().parseFromString(xml, 'application/xml');
-      const parseErr = doc.querySelector('parsererror');
-      if (parseErr) throw new Error('Invalid XML in .garden file');
-
-      const value = parseGardenXML(doc);
+      const json  = await new Response(ds.readable).text();
+      const value = this.gardenService.parseGardenJSON(json);
 
       this.cols.set(value.cols);
       this.rows.set(value.rows);
-      this.dimensionsFormGroup.setValue({ cols: value.cols, rows: value.rows });
-      this.gardenGridControl.setValue(value);
+      this.planForm.setValue({ dimensions: { cols: value.cols, rows: value.rows }, gardenGridData: value });
 
       this.setFeedback(`✓ Loaded ${file.name} — ${value.cols}×${value.rows} ft, ${value.cells.length} sq ft planted`, 'feedback-ok');
     } catch (err: any) {
