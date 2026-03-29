@@ -29,24 +29,15 @@
    </div>
  </div>
 
-<!-- Grid area -->
-<div id="grid-area">
-  <div style="display:flex;">
-    <div style="width:28px"></div>
-    <div class="ruler-x" id="ruler-x"></div>
-  </div>
-  <div style="display:flex;">
-    <div class="ruler-y" id="ruler-y"></div>
-    <div class="grid-wrapper">
-      <div id="garden-grid"></div>
-    </div>
-  </div>
-</div>
+<!-- Grid -->
+<garden-planner-grid
+  [formControl]="gardenGridControl"
+  [selectedPlant]="selectedPlant()"
+  (paintedCountChange)="paintedCount.set($event)"/>
 
 <!-- Info bar -->
 <div class="info-bar alignCenter my-2">
-  @let paintedCount1 = paintedCount();
-  <span id="area-display">Planted: {{ paintedCount1 }} sq ft</span>
+  <span id="area-display">Planted: {{ paintedCount() }} sq ft</span>
 </div>
 
 <div id="cmd-feedback"></div>
