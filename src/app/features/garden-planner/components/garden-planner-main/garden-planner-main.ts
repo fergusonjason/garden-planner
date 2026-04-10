@@ -1,13 +1,14 @@
 import { CommonModule } from '@angular/common';
-import { Component, computed, inject, signal } from '@angular/core';
-import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
+import { Component, computed, DestroyRef, inject, signal } from '@angular/core';
+import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
 import { APPLICATION_VERSION } from 'src/app/core/tokens/application-version.token';
 import { PLANT_MAP } from 'src/app/shared/constants/plant-map-constants';
 import { SelectedPlant } from 'src/app/shared/models/selected-plant';
 import { DialogService } from 'src/app/shared/services/dialog-service';
-import { DimensionBar, DimensionBarValue } from '../dimension-bar/dimension-bar';
-import { GardenGrid, GardenGridValue } from '../garden-grid/garden-grid';
+import { DimensionBar } from '../dimension-bar/dimension-bar';
+import { GardenCellData, GardenGrid } from '../garden-grid/garden-grid';
 import { GardenService } from '../../services/garden-service';
 import { PlantingSelector } from '../planting-selector/planting-selector';
 import { PlantingToolbar } from '../planting-toolbar/planting-toolbar';
@@ -31,21 +32,26 @@ export class GardenPlannerMain {
   private dialogService  = inject(DialogService);
   private formBuilder    = inject(FormBuilder);
   private gardenService  = inject(GardenService);
+  private destroyRef = inject(DestroyRef)
 
   applicationVersion = inject(APPLICATION_VERSION);
 
   readonly defaultCols = 40;
   readonly defaultRows = 40;
 
+  // this is a reactive form instead of a signal for because SignalForms are not
+  // stable and I don't trust the Angular core team not to totally change the
+  // API. We'll talk again when they bother marking Signal forms stable.
   planForm = this.formBuilder.group({
-    dimensions: this.formBuilder.control<DimensionBarValue>(
-      { cols: this.defaultCols, rows: this.defaultRows },
-      { nonNullable: true },
-    ),
-    gardenGridData: this.formBuilder.control<GardenGridValue>(
-      { cols: this.defaultCols, rows: this.defaultRows, cells: [] },
-      { nonNullable: true },
-    ),
+    dimensions2: this.formBuilder.group({
+      cols: [this.defaultCols, { nonNullable: true, validators: [Validators.required, Validators.min(5), Validators.max(200)] }],
+      rows: [this.defaultRows, { nonNullable: true, validators: [Validators.required, Validators.min(5), Validators.max(200)] }],
+    }),
+    gardenGridData2: this.formBuilder.group({
+      cols:  this.formBuilder.control<number>(this.defaultCols, { nonNullable: true }),
+      rows:  this.formBuilder.control<number>(this.defaultRows, { nonNullable: true }),
+      cells: this.formBuilder.control<GardenCellData[]>([], { nonNullable: true }),
+    }),
   });
 
   // ─── Grid dimensions ────────────────────────────────────────────────────────
@@ -75,6 +81,14 @@ export class GardenPlannerMain {
   // ─── Lifecycle ───────────────────────────────────────────────────────────────
   ngAfterViewInit(): void {
     document.addEventListener('keydown', this.keydownListener);
+
+    this.planForm.controls.gardenGridData2.valueChanges
+      .pipe(
+        takeUntilDestroyed(this.destroyRef)
+      )
+      .subscribe(value => {
+        console.log(JSON.stringify(value, null,2));
+      });
   }
 
   ngOnDestroy(): void {
@@ -85,7 +99,7 @@ export class GardenPlannerMain {
   applyDimensions(e: { cols: number, rows: number }): void {
     this.cols.set(e.cols);
     this.rows.set(e.rows);
-    this.planForm.controls.gardenGridData.setValue({ cols: e.cols, rows: e.rows, cells: [] });
+    this.planForm.controls.gardenGridData2.setValue({ cols: e.cols, rows: e.rows, cells: [] });
   }
 
   doOpenInstructions(): void {
@@ -122,8 +136,8 @@ export class GardenPlannerMain {
       .setDialogContent('Are you sure you want to clear the entire garden? This action cannot be undone.')
       .addAction('Cancel')
       .addAction('Clear', () => {
-        const v = this.planForm.controls.gardenGridData.value;
-        this.planForm.controls.gardenGridData.setValue({ cols: v.cols, rows: v.rows, cells: [] });
+        const v = this.planForm.controls.gardenGridData2.value;
+        this.planForm.controls.gardenGridData2.setValue({ cols: v.cols!, rows: v.rows!, cells: [] });
       })
       .open();
   }
@@ -143,7 +157,7 @@ export class GardenPlannerMain {
 
   // ─── .garden export / import ─────────────────────────────────────────────────
   async savePlan(): Promise<void> {
-    const value    = this.planForm.controls.gardenGridData.value;
+    const value    = this.planForm.controls.gardenGridData2.getRawValue();
     const json     = this.gardenService.buildGardenJSON(value);
     const encoded  = new TextEncoder().encode(json);
     const cs       = new (window as any).CompressionStream('gzip');
@@ -177,7 +191,7 @@ export class GardenPlannerMain {
 
       this.cols.set(value.cols);
       this.rows.set(value.rows);
-      this.planForm.setValue({ dimensions: { cols: value.cols, rows: value.rows }, gardenGridData: value });
+      this.planForm.patchValue({ dimensions2: { cols: value.cols, rows: value.rows }, gardenGridData2: value });
 
       this.setFeedback(`✓ Loaded ${file.name} — ${value.cols}×${value.rows} ft, ${value.cells.length} sq ft planted`, 'feedback-ok');
     } catch (err: any) {

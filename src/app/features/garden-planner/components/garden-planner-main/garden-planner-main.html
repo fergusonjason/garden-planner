@@ -1,4 +1,4 @@
-<div>
+<div [formGroup]="planForm">
 
 <header>
   <h1>Garden Planner</h1>
@@ -8,7 +8,8 @@
 </header>
 
 <!-- Dimension controls -->
-<garden-planner-dimension-bar [dimensionsFormGroup]="planForm.controls.dimensions" (dimensionChange)="applyDimensions($event)"/>
+<garden-planner-dimension-bar formGroupName="dimensions2"
+  (dimensionChange)="applyDimensions($event)"/>
 
 <div class="alignCenter my-3">
   <button class="btn-action ghost" (click)="doOpenInstructions()">📖 Instructions</button>
@@ -30,8 +31,7 @@
  </div>
 
 <!-- Grid -->
-<garden-planner-grid
-  [formControl]="planForm.controls.gardenGridData"
+<garden-planner-grid formGroupName="gardenGridData2"
   [selectedPlant]="selectedPlant()"
   (paintedCountChange)="paintedCount.set($event)"/>
 

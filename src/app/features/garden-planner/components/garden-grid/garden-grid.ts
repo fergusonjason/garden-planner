@@ -1,5 +1,6 @@
-import { Component, forwardRef, input, output, signal } from '@angular/core';
-import { ControlValueAccessor, NG_VALUE_ACCESSOR } from '@angular/forms';
+import { Component, DestroyRef, inject, input, output, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { ControlContainer, FormGroup } from '@angular/forms';
 
 import { PLANT_MAP } from 'src/app/shared/constants/plant-map-constants';
 import { SelectedPlant } from 'src/app/shared/models/selected-plant';
@@ -21,18 +22,14 @@ export interface GardenGridValue {
   selector: 'garden-planner-grid',
   templateUrl: './garden-grid.html',
   styleUrl: './garden-grid.css',
-  providers: [
-    {
-      provide: NG_VALUE_ACCESSOR,
-      useExisting: forwardRef(() => GardenGrid),
-      multi: true,
-    }
-  ]
 })
-export class GardenGrid implements ControlValueAccessor {
+export class GardenGrid {
 
-  selectedPlant    = input.required<SelectedPlant>();
+  selectedPlant      = input.required<SelectedPlant>();
   paintedCountChange = output<number>();
+
+  private controlContainer = inject(ControlContainer);
+  private destroyRef       = inject(DestroyRef);
 
   readonly paintedCount = signal<number>(0);
 
@@ -40,19 +37,18 @@ export class GardenGrid implements ControlValueAccessor {
   private rows = 40;
   private cells: GardenCellData[] = [];
 
-  private viewInitialized = false;
   private isPainting = false;
   private straightLockRow: number | null = null;
   private straightLockCol: number | null = null;
   private straightAxis: 'row' | 'col' | null = null;
   private gridMouseMoveListener: ((e: MouseEvent) => void) | null = null;
 
-  private onChange: (value: GardenGridValue) => void = () => {};
-  private onTouched: () => void = () => {};
+  private get gardenGroup(): FormGroup {
+    return this.controlContainer.control as FormGroup;
+  }
 
   private mouseUpListener = () => {
     if (this.isPainting) {
-      this.onTouched();
       this.notifyChange();
     }
     this.isPainting      = false;
@@ -63,8 +59,24 @@ export class GardenGrid implements ControlValueAccessor {
 
   // ─── Lifecycle ───────────────────────────────────────────────────────────────
   ngAfterViewInit(): void {
-    this.viewInitialized = true;
     document.addEventListener('mouseup', this.mouseUpListener);
+
+    // React to external writes (applyDimensions, loadPlan, clearGrid)
+    this.gardenGroup.valueChanges
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((value: GardenGridValue) => {
+        this.cols  = value.cols;
+        this.rows  = value.rows;
+        this.cells = value.cells;
+        this.buildGrid();
+        this.applyStoredCells();
+      });
+
+    // Apply initial value
+    const initial = this.gardenGroup.getRawValue() as GardenGridValue;
+    this.cols  = initial.cols;
+    this.rows  = initial.rows;
+    this.cells = initial.cells;
     this.buildGrid();
     this.applyStoredCells();
   }
@@ -72,27 +84,6 @@ export class GardenGrid implements ControlValueAccessor {
   ngOnDestroy(): void {
     document.removeEventListener('mouseup', this.mouseUpListener);
   }
-
-  // ─── ControlValueAccessor ───────────────────────────────────────────────────
-  writeValue(value: GardenGridValue | null): void {
-    this.cols  = value?.cols  ?? 40;
-    this.rows  = value?.rows  ?? 40;
-    this.cells = value?.cells ?? [];
-    if (this.viewInitialized) {
-      this.buildGrid();
-      this.applyStoredCells();
-    }
-  }
-
-  registerOnChange(fn: (value: GardenGridValue) => void): void {
-    this.onChange = fn;
-  }
-
-  registerOnTouched(fn: () => void): void {
-    this.onTouched = fn;
-  }
-
-  setDisabledState(_isDisabled: boolean): void {}
 
   // ─── Grid ───────────────────────────────────────────────────────────────────
   private buildGrid(): void {
@@ -258,7 +249,7 @@ export class GardenGrid implements ControlValueAccessor {
     }
   }
 
-  // Called on mouseup — syncs DOM → this.cells and fires onChange
+  // Called on mouseup — syncs DOM → gridControl without re-triggering valueChanges
   private notifyChange(): void {
     const cellEls = document.querySelectorAll('.cell');
     const cells: GardenCellData[] = [];
@@ -278,6 +269,7 @@ export class GardenGrid implements ControlValueAccessor {
     const count = cells.length;
     this.paintedCount.set(count);
     this.paintedCountChange.emit(count);
-    this.onChange({ cols: this.cols, rows: this.rows, cells });
+    this.gardenGroup.setValue({ cols: this.cols, rows: this.rows, cells }, { emitEvent: false });
+    this.gardenGroup.markAsTouched();
   }
 }
