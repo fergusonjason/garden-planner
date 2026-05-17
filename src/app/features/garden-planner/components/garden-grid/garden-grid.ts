@@ -898,11 +898,12 @@ export class GardenGrid {
     if (!group) return;
 
     const plantLabel = group.plant.charAt(0).toUpperCase() + group.plant.slice(1);
-    const pending: EditGroupData = { subtype: group.subtype, notes: group.notes };
+    const pending: EditGroupData = { plant: group.plant, subtype: group.subtype, notes: group.notes };
 
     this.dialogService.createDialog()
       .setTitle(`Edit ${plantLabel} Group`)
       .setDialogContent(EditGroupComponent, {
+        plant:    group.plant,
         subtype:  group.subtype ?? '',
         notes:    group.notes   ?? '',
         onChange: (data: EditGroupData) => Object.assign(pending, data),
@@ -910,11 +911,31 @@ export class GardenGrid {
       .setWidth('360px')
       .addAction('Cancel')
       .addAction('Save', () => {
-        group.subtype = pending.subtype;
+        const plantChanged = pending.plant && pending.plant !== group.plant;
         group.notes   = pending.notes;
-        this.syncGroupsToForm();
+        group.subtype = pending.subtype;
+        if (plantChanged && pending.plant) {
+          group.plant = pending.plant;
+          this.repaintGroupCells(groupId, pending.plant);
+        }
+        this.notifyChange();
       })
       .open();
+  }
+
+  private repaintGroupCells(groupId: string, plant: string): void {
+    const color = PLANT_MAP[plant]?.color;
+    if (!color) return;
+    const grid = document.getElementById('garden-grid')!;
+    for (let r = 0; r < this.rows; r++) {
+      for (let c = 0; c < this.cols; c++) {
+        const cell = grid.children[r * this.cols + c] as HTMLElement;
+        if (cell.dataset['groupId'] !== groupId) continue;
+        cell.style.background       = color;
+        cell.dataset['zone']        = 'custom';
+        cell.dataset['customColor'] = color;
+      }
+    }
   }
 
   private showDeleteGroupConfirmation(groupId: string): void {
@@ -950,14 +971,6 @@ export class GardenGrid {
       }
     }
     this.notifyChange();
-  }
-
-  private syncGroupsToForm(): void {
-    this.gardenGroup.setValue(
-      { cols: this.cols, rows: this.rows, cells: this.cells, groups: this.groups },
-      { emitEvent: false }
-    );
-    this.gardenGroup.markAsTouched();
   }
 
   private restoreMoveCell(grid: HTMLElement, r: number, c: number, cols: number): void {

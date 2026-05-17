@@ -510,3 +510,5 @@ footer a:hover { color: var(--accent); }
 }
 .edit-group-input::placeholder { color: rgba(245,240,232,0.28); }
 .edit-group-input:focus { border-color: var(--accent); }
+select.edit-group-input { cursor: pointer; }
+select.edit-group-input option { background: #2a1a0e; color: var(--cream); }
