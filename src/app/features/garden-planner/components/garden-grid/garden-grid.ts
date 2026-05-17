@@ -56,7 +56,7 @@ export class GardenGrid {
   private boxStartCol  = 0;
   private boxEndRow    = 0;
   private boxEndCol    = 0;
-  private boxSnapshot  = new Map<string, { zone: string | undefined; color: string | undefined }>();
+  private boxSnapshot  = new Map<string, { zone: string | undefined; color: string | undefined; groupId: string | undefined }>();
 
   private get gardenGroup(): FormGroup {
     return this.controlContainer.control as FormGroup;
@@ -171,7 +171,7 @@ export class GardenGrid {
             this.boxEndRow    = r;
             this.boxEndCol    = c;
             this.boxSnapshot.clear();
-            this.boxSnapshot.set(`${r},${c}`, { zone: cell.dataset['zone'], color: cell.dataset['customColor'] });
+            this.boxSnapshot.set(`${r},${c}`, { zone: cell.dataset['zone'], color: cell.dataset['customColor'], groupId: cell.dataset['groupId'] });
             this.paintCellDirect(cell);
           } else {
             this.isBoxDrawing = false;
@@ -225,6 +225,50 @@ export class GardenGrid {
     }
     this.paintedCount.set(count);
     this.paintedCountChange.emit(count);
+    this.applyGroupBorders();
+  }
+
+  private static readonly GROUP_COLORS = [
+    '#ffd740', '#40c4ff', '#ff4081', '#69f0ae',
+    '#ff6d00', '#e040fb', '#ccff90', '#ff6e40',
+  ];
+
+  private applyGroupBorders(): void {
+    const grid  = document.getElementById('garden-grid')!;
+    const cols  = this.cols;
+    const rows  = this.rows;
+    const cells = grid.children;
+
+    const colorMap = new Map<string, string>();
+    this.groups.forEach((g, i) => {
+      colorMap.set(g.id, GardenGrid.GROUP_COLORS[i % GardenGrid.GROUP_COLORS.length]);
+    });
+
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        const cell    = cells[r * cols + c] as HTMLElement;
+        const groupId = cell.dataset['groupId'];
+
+        if (!groupId || !colorMap.has(groupId)) {
+          cell.style.boxShadow = '';
+          continue;
+        }
+
+        const color = colorMap.get(groupId)!;
+        const aboveId = r > 0          ? (cells[(r - 1) * cols + c] as HTMLElement).dataset['groupId'] : undefined;
+        const belowId = r < rows - 1   ? (cells[(r + 1) * cols + c] as HTMLElement).dataset['groupId'] : undefined;
+        const leftId  = c > 0          ? (cells[r * cols + (c - 1)] as HTMLElement).dataset['groupId'] : undefined;
+        const rightId = c < cols - 1   ? (cells[r * cols + (c + 1)] as HTMLElement).dataset['groupId'] : undefined;
+
+        const shadows: string[] = [];
+        if (aboveId !== groupId) shadows.push(`inset 0  2px 0 0 ${color}`);
+        if (belowId !== groupId) shadows.push(`inset 0 -2px 0 0 ${color}`);
+        if (leftId  !== groupId) shadows.push(`inset  2px 0 0 0 ${color}`);
+        if (rightId !== groupId) shadows.push(`inset -2px 0 0 0 ${color}`);
+
+        cell.style.boxShadow = shadows.join(', ');
+      }
+    }
   }
 
   // ─── Paint ──────────────────────────────────────────────────────────────────
@@ -246,6 +290,7 @@ export class GardenGrid {
     if (cell.dataset['zone'] || cell.dataset['customColor']) {
       delete cell.dataset['zone'];
       delete cell.dataset['customColor'];
+      delete cell.dataset['groupId'];
       cell.style.background = '';
       this.paintedCount.update(c => Math.max(0, c - 1));
     }
@@ -256,6 +301,7 @@ export class GardenGrid {
     if (selected.currentZone === 'erase') {
       delete cell.dataset['zone'];
       delete cell.dataset['customColor'];
+      delete cell.dataset['groupId'];
       cell.style.background = '';
       return;
     }
@@ -282,6 +328,8 @@ export class GardenGrid {
       delete cell.dataset['customColor'];
       cell.style.background = '';
     }
+    if (snap.groupId) cell.dataset['groupId'] = snap.groupId;
+    else              delete cell.dataset['groupId'];
     this.boxSnapshot.delete(key);
   }
 
@@ -316,7 +364,7 @@ export class GardenGrid {
         const cell = grid.children[r * cols + c] as HTMLElement;
         if (!cell) continue;
         if (!this.boxSnapshot.has(key)) {
-          this.boxSnapshot.set(key, { zone: cell.dataset['zone'], color: cell.dataset['customColor'] });
+          this.boxSnapshot.set(key, { zone: cell.dataset['zone'], color: cell.dataset['customColor'], groupId: cell.dataset['groupId'] });
         }
         this.paintCellDirect(cell);
       }
@@ -376,5 +424,6 @@ export class GardenGrid {
     this.paintedCountChange.emit(count);
     this.gardenGroup.setValue({ cols: this.cols, rows: this.rows, cells, groups: this.groups }, { emitEvent: false });
     this.gardenGroup.markAsTouched();
+    this.applyGroupBorders();
   }
 }
