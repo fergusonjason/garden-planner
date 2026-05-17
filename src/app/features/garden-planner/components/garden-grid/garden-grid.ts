@@ -30,6 +30,9 @@ export interface GardenGridValue {
   notes:  string;
 }
 
+type CellSnap   = { zone: string | undefined; color: string | undefined; groupId: string | undefined };
+type GroupBounds = { minR: number; maxR: number; minC: number; maxC: number };
+
 
 @Component({
   selector: 'garden-planner-grid',
@@ -47,12 +50,21 @@ export class GardenGrid {
 
   readonly paintedCount = signal<number>(0);
 
+  // ─── Garden state ────────────────────────────────────────────────────────────
   private cols      = 40;
   private rows      = 40;
   private cells:    GardenCellData[] = [];
   private groups:   PlantGroup[]     = [];
   private planNotes = '';
 
+  // ─── Cached DOM refs ─────────────────────────────────────────────────────────
+  private cellEls:      HTMLElement[] = [];
+  private gridEl:       HTMLElement | null = null;
+  private labelsLayer:  HTMLElement | null = null;
+  private handlesLayer: HTMLElement | null = null;
+  private cellSize      = 0;
+
+  // ─── Interaction state ───────────────────────────────────────────────────────
   private isPainting      = false;
   private hoveredGroupId: string | null = null;
   private contextMenu:    HTMLElement | null = null;
@@ -65,7 +77,7 @@ export class GardenGrid {
   private boxStartCol  = 0;
   private boxEndRow    = 0;
   private boxEndCol    = 0;
-  private boxSnapshot  = new Map<string, { zone: string | undefined; color: string | undefined; groupId: string | undefined }>();
+  private boxSnapshot  = new Map<string, CellSnap>();
 
   // Group resize state
   private isResizing     = false;
@@ -74,9 +86,9 @@ export class GardenGrid {
   private resizeFixedC   = 0;
   private resizeCurrentR = 0;
   private resizeCurrentC = 0;
-  private resizeLockRow  = false;  // edge handles: freeze row dimension
-  private resizeLockCol  = false;  // edge handles: freeze col dimension
-  private resizeSnapshot = new Map<string, { zone: string | undefined; color: string | undefined; groupId: string | undefined }>();
+  private resizeLockRow  = false;
+  private resizeLockCol  = false;
+  private resizeSnapshot = new Map<string, CellSnap>();
 
   // Group move state
   private isMoving          = false;
@@ -90,7 +102,7 @@ export class GardenGrid {
   private moveBoundsMinC    = 0;
   private moveBoundsMaxC    = 0;
   private moveOriginalCells: Array<{ r: number; c: number }> = [];
-  private moveSnapshot      = new Map<string, { zone: string | undefined; color: string | undefined; groupId: string | undefined }>();
+  private moveSnapshot      = new Map<string, CellSnap>();
   private moveHasConflict   = false;
 
   // Undo / redo
@@ -98,13 +110,22 @@ export class GardenGrid {
   private undoStack: GardenGridValue[] = [];
   private redoStack: GardenGridValue[] = [];
 
+  // ─── Static lookups ──────────────────────────────────────────────────────────
+  private static readonly GROUP_COLORS = [
+    '#ffd740', '#40c4ff', '#ff4081', '#69f0ae',
+    '#ff6d00', '#e040fb', '#ccff90', '#ff6e40',
+  ];
+
+  private static readonly COLOR_TO_PLANT = new Map<string, string>(
+    Object.entries(PLANT_MAP).map(([k, v]) => [v.color, k])
+  );
+
+  // ─── Event handlers ──────────────────────────────────────────────────────────
   private readonly resizeMoveHandler = (e: MouseEvent) => {
     if (!this.isResizing) return;
-    const grid     = document.getElementById('garden-grid')!;
-    const rect     = grid.getBoundingClientRect();
-    const cellSize = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--cell-size'));
-    let c = Math.floor((e.clientX - rect.left) / cellSize);
-    let r = Math.floor((e.clientY - rect.top)  / cellSize);
+    const rect = this.gridEl!.getBoundingClientRect();
+    let c = Math.floor((e.clientX - rect.left) / this.cellSize);
+    let r = Math.floor((e.clientY - rect.top)  / this.cellSize);
     c = Math.max(0, Math.min(this.cols - 1, c));
     r = Math.max(0, Math.min(this.rows - 1, r));
     if (this.resizeLockRow) r = this.resizeCurrentR;
@@ -135,11 +156,9 @@ export class GardenGrid {
 
   private readonly moveDragHandler = (e: MouseEvent) => {
     if (!this.isMoving) return;
-    const grid     = document.getElementById('garden-grid')!;
-    const rect     = grid.getBoundingClientRect();
-    const cellSize = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--cell-size'));
-    let c = Math.floor((e.clientX - rect.left) / cellSize);
-    let r = Math.floor((e.clientY - rect.top)  / cellSize);
+    const rect = this.gridEl!.getBoundingClientRect();
+    let c = Math.floor((e.clientX - rect.left) / this.cellSize);
+    let r = Math.floor((e.clientY - rect.top)  / this.cellSize);
     c = Math.max(0, Math.min(this.cols - 1, c));
     r = Math.max(0, Math.min(this.rows - 1, r));
 
@@ -185,13 +204,16 @@ export class GardenGrid {
 
   // ─── Lifecycle ───────────────────────────────────────────────────────────────
   ngAfterViewInit(): void {
+    this.gridEl       = document.getElementById('garden-grid')!;
+    this.labelsLayer  = document.getElementById('group-labels-layer')!;
+    this.handlesLayer = document.getElementById('group-handles-layer')!;
+
     document.addEventListener('mouseup',   this.mouseUpListener);
     document.addEventListener('mousemove', this.resizeMoveHandler);
     document.addEventListener('mousemove', this.moveDragHandler);
     document.addEventListener('mousedown', this.contextMenuCloseHandler);
     document.addEventListener('keydown',   this.contextMenuKeyHandler);
 
-    // React to external writes (applyDimensions, loadPlan, clearGrid)
     this.gardenGroup.valueChanges
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe((value: GardenGridValue) => {
@@ -204,7 +226,6 @@ export class GardenGrid {
         this.applyStoredCells();
       });
 
-    // Apply initial value
     const initial  = this.gardenGroup.getRawValue() as GardenGridValue;
     this.cols      = initial.cols;
     this.rows      = initial.rows;
@@ -227,7 +248,8 @@ export class GardenGrid {
   // ─── Grid ───────────────────────────────────────────────────────────────────
   private buildGrid(): void {
     this.hideGroupTooltip();
-    const grid   = document.getElementById('garden-grid')!;
+
+    const grid   = this.gridEl!;
     const rulerX = document.getElementById('ruler-x')!;
     const rulerY = document.getElementById('ruler-y')!;
 
@@ -235,6 +257,8 @@ export class GardenGrid {
       grid.removeEventListener('mousemove', this.gridMouseMoveListener);
       this.gridMouseMoveListener = null;
     }
+
+    this.cellSize = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--cell-size'));
 
     grid.innerHTML   = '';
     rulerX.innerHTML = '';
@@ -248,17 +272,19 @@ export class GardenGrid {
 
     for (let c = 0; c < cols; c++) {
       const d = document.createElement('div');
-      d.className = 'ruler-cell' + ((c + 1) % 5 === 0 ? ' labeled' : '');
+      d.className   = 'ruler-cell' + ((c + 1) % 5 === 0 ? ' labeled' : '');
       d.textContent = (c + 1) % 5 === 0 ? String(c + 1) : '';
       rulerX.appendChild(d);
     }
-
     for (let r = 0; r < rows; r++) {
       const d = document.createElement('div');
-      d.className = 'ruler-cell' + ((r + 1) % 5 === 0 ? ' labeled' : '');
+      d.className   = 'ruler-cell' + ((r + 1) % 5 === 0 ? ' labeled' : '');
       d.textContent = (r + 1) % 5 === 0 ? String(r + 1) : '';
       rulerY.appendChild(d);
     }
+
+    this.cellEls = [];
+    const frag   = document.createDocumentFragment();
 
     for (let r = 0; r < rows; r++) {
       for (let c = 0; c < cols; c++) {
@@ -286,10 +312,7 @@ export class GardenGrid {
           }
           if (!this.isPainting) return;
           if (this.isBoxDrawing) return;
-          if (e.shiftKey) {
-            this.eraseCell(cell);
-            return;
-          }
+          if (e.shiftKey) { this.eraseCell(cell); return; }
           this.paintCell(cell);
         });
 
@@ -328,9 +351,12 @@ export class GardenGrid {
           }
         });
 
-        grid.appendChild(cell);
+        this.cellEls.push(cell);
+        frag.appendChild(cell);
       }
     }
+
+    grid.appendChild(frag);
 
     this.gridMouseMoveListener = (e: MouseEvent) => {
       if (this.tooltipEl) {
@@ -338,17 +364,12 @@ export class GardenGrid {
         this.tooltipEl.style.top  = `${e.clientY + 14}px`;
       }
       if (!this.isPainting || !this.isBoxDrawing) return;
-
-      const rect     = grid.getBoundingClientRect();
-      const cellSize = parseFloat(
-        getComputedStyle(document.documentElement).getPropertyValue('--cell-size')
-      );
-      let c = Math.floor((e.clientX - rect.left) / cellSize);
-      let r = Math.floor((e.clientY - rect.top)  / cellSize);
+      const rect = grid.getBoundingClientRect();
+      let c = Math.floor((e.clientX - rect.left) / this.cellSize);
+      let r = Math.floor((e.clientY - rect.top)  / this.cellSize);
       c = Math.max(0, Math.min(cols - 1, c));
       r = Math.max(0, Math.min(rows - 1, r));
-
-      this.updateBox(grid, cols, r, c);
+      this.updateBox(r, c);
       this.boxEndRow = r;
       this.boxEndCol = c;
     };
@@ -366,11 +387,10 @@ export class GardenGrid {
   }
 
   private applyStoredCells(): void {
-    const cellEls = document.querySelectorAll('.cell');
     let count = 0;
     for (const { x, y, plant, groupId } of this.cells) {
       if (x >= this.cols || y >= this.rows) continue;
-      const cell  = cellEls[y * this.cols + x] as HTMLElement;
+      const cell = this.cellEls[y * this.cols + x];
       if (!cell) continue;
       const color = PLANT_MAP[plant]?.color ?? null;
       if (color) {
@@ -386,28 +406,21 @@ export class GardenGrid {
     this.paintedCount.set(count);
     this.paintedCountChange.emit(count);
     this.applyGroupBorders();
-    this.applyGroupHandles();
   }
 
-  private static readonly GROUP_COLORS = [
-    '#ffd740', '#40c4ff', '#ff4081', '#69f0ae',
-    '#ff6d00', '#e040fb', '#ccff90', '#ff6e40',
-  ];
-
+  // ─── Group rendering (single-pass bounds) ───────────────────────────────────
   private applyGroupBorders(): void {
-    const grid  = document.getElementById('garden-grid')!;
-    const cols  = this.cols;
-    const rows  = this.rows;
-    const cells = grid.children;
+    const cols = this.cols;
+    const rows = this.rows;
 
     const colorMap = new Map<string, string>();
-    this.groups.forEach((g, i) => {
-      colorMap.set(g.id, GardenGrid.GROUP_COLORS[i % GardenGrid.GROUP_COLORS.length]);
-    });
+    this.groups.forEach((g, i) => colorMap.set(g.id, GardenGrid.GROUP_COLORS[i % GardenGrid.GROUP_COLORS.length]));
+
+    const allBounds = new Map<string, GroupBounds>();
 
     for (let r = 0; r < rows; r++) {
       for (let c = 0; c < cols; c++) {
-        const cell    = cells[r * cols + c] as HTMLElement;
+        const cell    = this.cellEls[r * cols + c];
         const groupId = cell.dataset['groupId'];
 
         if (!groupId || !colorMap.has(groupId)) {
@@ -415,22 +428,27 @@ export class GardenGrid {
           continue;
         }
 
-        const color = colorMap.get(groupId)!;
-        const aboveId = r > 0          ? (cells[(r - 1) * cols + c] as HTMLElement).dataset['groupId'] : undefined;
-        const belowId = r < rows - 1   ? (cells[(r + 1) * cols + c] as HTMLElement).dataset['groupId'] : undefined;
-        const leftId  = c > 0          ? (cells[r * cols + (c - 1)] as HTMLElement).dataset['groupId'] : undefined;
-        const rightId = c < cols - 1   ? (cells[r * cols + (c + 1)] as HTMLElement).dataset['groupId'] : undefined;
+        let b = allBounds.get(groupId);
+        if (!b) { b = { minR: r, maxR: r, minC: c, maxC: c }; allBounds.set(groupId, b); }
+        else    { if (r > b.maxR) b.maxR = r; if (c < b.minC) b.minC = c; if (c > b.maxC) b.maxC = c; }
+
+        const color   = colorMap.get(groupId)!;
+        const aboveId = r > 0        ? this.cellEls[(r - 1) * cols + c].dataset['groupId'] : undefined;
+        const belowId = r < rows - 1 ? this.cellEls[(r + 1) * cols + c].dataset['groupId'] : undefined;
+        const leftId  = c > 0        ? this.cellEls[r * cols + (c - 1)].dataset['groupId'] : undefined;
+        const rightId = c < cols - 1 ? this.cellEls[r * cols + (c + 1)].dataset['groupId'] : undefined;
 
         const shadows: string[] = [];
         if (aboveId !== groupId) shadows.push(`inset 0  2px 0 0 ${color}`);
         if (belowId !== groupId) shadows.push(`inset 0 -2px 0 0 ${color}`);
         if (leftId  !== groupId) shadows.push(`inset  2px 0 0 0 ${color}`);
         if (rightId !== groupId) shadows.push(`inset -2px 0 0 0 ${color}`);
-
         cell.style.boxShadow = shadows.join(', ');
       }
     }
-    this.applyGroupLabels();
+
+    this.applyGroupLabels(allBounds);
+    this.applyGroupHandles(allBounds);
   }
 
   private static relativeLuminance(hex: string): number {
@@ -441,52 +459,38 @@ export class GardenGrid {
     return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
   }
 
-  private applyGroupLabels(): void {
-    const layer  = document.getElementById('group-labels-layer');
-    const gridEl = document.getElementById('garden-grid');
-    if (!layer || !gridEl) return;
+  private applyGroupLabels(allBounds: Map<string, GroupBounds>): void {
+    const layer = this.labelsLayer;
+    if (!layer) return;
 
     layer.innerHTML = '';
 
-    const cellSize  = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--cell-size'));
+    const gridRect  = this.gridEl!.getBoundingClientRect();
     const layerRect = layer.parentElement!.getBoundingClientRect();
-    const gridRect  = gridEl.getBoundingClientRect();
     const offX      = gridRect.left - layerRect.left;
     const offY      = gridRect.top  - layerRect.top;
+    const cs        = this.cellSize;
 
     for (const group of this.groups) {
-      let minR = Infinity, maxR = -Infinity, minC = Infinity, maxC = -Infinity;
-      for (let r = 0; r < this.rows; r++) {
-        for (let c = 0; c < this.cols; c++) {
-          const gid = (gridEl.children[r * this.cols + c] as HTMLElement).dataset['groupId'];
-          if (gid !== group.id) continue;
-          if (r < minR) minR = r;
-          if (r > maxR) maxR = r;
-          if (c < minC) minC = c;
-          if (c > maxC) maxC = c;
-        }
-      }
-      if (minR === Infinity) continue;
+      const b = allBounds.get(group.id);
+      if (!b) continue;
 
-      const widthCells  = maxC - minC + 1;
-      const heightCells = maxR - minR + 1;
-
-      const plantLabel = group.plant.charAt(0).toUpperCase() + group.plant.slice(1);
-      const text       = group.subtype ? `${plantLabel} · ${group.subtype}` : plantLabel;
-
-      const plantColor = PLANT_MAP[group.plant]?.color ?? '#000000';
-      const luminance  = GardenGrid.relativeLuminance(plantColor);
-      const lightBg    = luminance > 0.35;
+      const widthCells  = b.maxC - b.minC + 1;
+      const heightCells = b.maxR - b.minR + 1;
+      const plantLabel  = group.plant.charAt(0).toUpperCase() + group.plant.slice(1);
+      const text        = group.subtype ? `${plantLabel} · ${group.subtype}` : plantLabel;
+      const plantColor  = PLANT_MAP[group.plant]?.color ?? '#000000';
+      const lightBg     = GardenGrid.relativeLuminance(plantColor) > 0.35;
 
       const el = document.createElement('div');
       el.className        = 'group-label';
       el.textContent      = text;
-      el.style.left       = `${offX + minC * cellSize}px`;
-      el.style.top        = `${offY + minR * cellSize}px`;
-      el.style.width      = `${widthCells  * cellSize}px`;
-      el.style.height     = `${heightCells * cellSize}px`;
-      el.style.color      = lightBg ? 'rgba(26,18,9,0.85)'   : 'rgba(255,255,255,0.85)';
-      el.style.textShadow = lightBg ? 'none'                  : '0 1px 3px rgba(0,0,0,0.9)';
+      el.style.left       = `${offX + b.minC * cs}px`;
+      el.style.top        = `${offY + b.minR * cs}px`;
+      el.style.width      = `${widthCells  * cs}px`;
+      el.style.height     = `${heightCells * cs}px`;
+      el.style.color      = lightBg ? 'rgba(26,18,9,0.85)'  : 'rgba(255,255,255,0.85)';
+      el.style.textShadow = lightBg ? 'none'                 : '0 1px 3px rgba(0,0,0,0.9)';
       if (heightCells > widthCells) {
         el.style.writingMode = 'vertical-lr';
         el.style.transform   = 'rotate(180deg)';
@@ -498,10 +502,7 @@ export class GardenGrid {
   // ─── Paint ──────────────────────────────────────────────────────────────────
   private paintCell(cell: HTMLElement): void {
     const selected = this.selectedPlant();
-    if (selected.currentZone === 'erase') {
-      this.eraseCell(cell);
-      return;
-    }
+    if (selected.currentZone === 'erase') { this.eraseCell(cell); return; }
     const color    = selected.plant.color;
     const hadColor = cell.dataset['zone'] || cell.dataset['customColor'];
     if (!hadColor) this.paintedCount.update(c => c + 1);
@@ -557,7 +558,8 @@ export class GardenGrid {
     this.boxSnapshot.delete(key);
   }
 
-  private updateBox(grid: HTMLElement, cols: number, newEndR: number, newEndC: number): void {
+  private updateBox(newEndR: number, newEndC: number): void {
+    const cols   = this.cols;
     const startR = this.boxStartRow;
     const startC = this.boxStartCol;
 
@@ -576,16 +578,13 @@ export class GardenGrid {
 
     for (let r = oldMinR; r <= oldMaxR; r++) {
       for (let c = oldMinC; c <= oldMaxC; c++) {
-        if (!inNew(r, c)) {
-          this.restoreBoxCell(grid.children[r * cols + c] as HTMLElement, r, c);
-        }
+        if (!inNew(r, c)) this.restoreBoxCell(this.cellEls[r * cols + c], r, c);
       }
     }
-
     for (let r = newMinR; r <= newMaxR; r++) {
       for (let c = newMinC; c <= newMaxC; c++) {
         const key  = `${r},${c}`;
-        const cell = grid.children[r * cols + c] as HTMLElement;
+        const cell = this.cellEls[r * cols + c];
         if (!cell) continue;
         if (!this.boxSnapshot.has(key)) {
           this.boxSnapshot.set(key, { zone: cell.dataset['zone'], color: cell.dataset['customColor'], groupId: cell.dataset['groupId'] });
@@ -597,9 +596,7 @@ export class GardenGrid {
 
   private commitBox(): void {
     if (this.selectedPlant().currentZone === 'erase') return;
-
-    const grid   = document.getElementById('garden-grid')!;
-    const cols   = this.cols;
+    const cols    = this.cols;
     const groupId = crypto.randomUUID();
     const minR = Math.min(this.boxStartRow, this.boxEndRow);
     const maxR = Math.max(this.boxStartRow, this.boxEndRow);
@@ -607,39 +604,33 @@ export class GardenGrid {
     const maxC = Math.max(this.boxStartCol, this.boxEndCol);
 
     this.groups.push({ id: groupId, plant: this.selectedPlant().plant.key });
-
     for (let r = minR; r <= maxR; r++) {
       for (let c = minC; c <= maxC; c++) {
-        const cell = grid.children[r * cols + c] as HTMLElement;
+        const cell = this.cellEls[r * cols + c];
         if (cell) cell.dataset['groupId'] = groupId;
       }
     }
   }
 
-  // Called on mouseup — syncs DOM → gridControl without re-triggering valueChanges
+  // Syncs DOM → gridControl without re-triggering valueChanges
   private notifyChange(): void {
-    const cellEls = document.querySelectorAll('.cell');
     const cells: GardenCellData[] = [];
-    const activeGroupIds = new Set<string>();
+    const activeGroupIds          = new Set<string>();
+    const n                       = this.rows * this.cols;
 
-    cellEls.forEach((c: Element) => {
-      const cell    = c as HTMLElement;
+    for (let i = 0; i < n; i++) {
+      const cell    = this.cellEls[i];
       const custom  = cell.dataset['customColor'];
       const zone    = cell.dataset['zone'];
       const groupId = cell.dataset['groupId'];
-      if (!custom && !zone) return;
-      const x = parseInt(cell.dataset['col']!);
-      const y = parseInt(cell.dataset['row']!);
-      const plant = custom
-        ? (Object.keys(PLANT_MAP).find(k => PLANT_MAP[k].color === custom) ?? 'unknown')
-        : zone!;
+      if (!custom && !zone) continue;
+      const x     = i % this.cols;
+      const y     = Math.floor(i / this.cols);
+      const plant = custom ? (GardenGrid.COLOR_TO_PLANT.get(custom) ?? 'unknown') : zone!;
       const cellData: GardenCellData = { x, y, plant };
-      if (groupId) {
-        cellData.groupId = groupId;
-        activeGroupIds.add(groupId);
-      }
+      if (groupId) { cellData.groupId = groupId; activeGroupIds.add(groupId); }
       cells.push(cellData);
-    });
+    }
 
     this.groups = this.groups.filter(g => activeGroupIds.has(g.id));
     this.cells  = cells;
@@ -649,14 +640,12 @@ export class GardenGrid {
     this.gardenGroup.setValue({ cols: this.cols, rows: this.rows, cells, groups: this.groups, notes: this.planNotes }, { emitEvent: false });
     this.gardenGroup.markAsTouched();
     this.applyGroupBorders();
-    this.applyGroupHandles();
   }
 
   // ─── Group resize ────────────────────────────────────────────────────────────
-  private applyGroupHandles(): void {
-    const layer  = document.getElementById('group-handles-layer');
-    const gridEl = document.getElementById('garden-grid');
-    if (!layer || !gridEl) return;
+  private applyGroupHandles(allBounds?: Map<string, GroupBounds>): void {
+    const layer = this.handlesLayer;
+    if (!layer) return;
 
     layer.innerHTML = '';
 
@@ -668,69 +657,59 @@ export class GardenGrid {
     const group = this.groups.find(g => g.id === targetId);
     if (!group) return;
 
-    const cellSize  = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--cell-size'));
+    const cs        = this.cellSize;
     const layerRect = layer.parentElement!.getBoundingClientRect();
-    const gridRect  = gridEl.getBoundingClientRect();
+    const gridRect  = this.gridEl!.getBoundingClientRect();
     const offX      = gridRect.left - layerRect.left;
     const offY      = gridRect.top  - layerRect.top;
-
     const groupIndex = this.groups.indexOf(group);
 
-    // Compute bounding box for target group only
-    const bounds = new Map<string, { minR: number; maxR: number; minC: number; maxC: number }>();
-    for (let r = 0; r < this.rows; r++) {
-      for (let c = 0; c < this.cols; c++) {
-        const gid = (gridEl.children[r * this.cols + c] as HTMLElement).dataset['groupId'];
-        if (gid !== targetId) continue;
-        const b = bounds.get(gid) ?? { minR: Infinity, maxR: -Infinity, minC: Infinity, maxC: -Infinity };
-        if (r < b.minR) b.minR = r;
-        if (r > b.maxR) b.maxR = r;
-        if (c < b.minC) b.minC = c;
-        if (c > b.maxC) b.maxC = c;
-        bounds.set(gid, b);
+    let b: GroupBounds | undefined = allBounds?.get(targetId);
+    if (!b) {
+      const cols = this.cols;
+      const rows = this.rows;
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          if (this.cellEls[r * cols + c].dataset['groupId'] !== targetId) continue;
+          if (!b) b = { minR: r, maxR: r, minC: c, maxC: c };
+          else    { if (r > b.maxR) b.maxR = r; if (c < b.minC) b.minC = c; if (c > b.maxC) b.maxC = c; }
+        }
       }
     }
+    if (!b) return;
 
+    const color = GardenGrid.GROUP_COLORS[groupIndex % GardenGrid.GROUP_COLORS.length];
+    const midX  = offX + (b.minC + b.maxC + 1) / 2 * cs;
+    const midY  = offY + (b.minR + b.maxR + 1) / 2 * cs;
     const H = 8, HALF = H / 2;
 
-    {
-      const b = bounds.get(group.id);
-      if (!b || b.minR === Infinity) return;
-      const color = GardenGrid.GROUP_COLORS[groupIndex % GardenGrid.GROUP_COLORS.length];
+    type HandleDef = { px: number; py: number; fixedR: number; fixedC: number; activeR: number; activeC: number; lockRow: boolean; lockCol: boolean; cursor: string };
+    const handles: HandleDef[] = [
+      { px: offX + b.minC       * cs, py: offY + b.minR       * cs, fixedR: b.maxR, fixedC: b.maxC, activeR: b.minR, activeC: b.minC, lockRow: false, lockCol: false, cursor: 'nwse-resize' },
+      { px: offX + (b.maxC + 1) * cs, py: offY + b.minR       * cs, fixedR: b.maxR, fixedC: b.minC, activeR: b.minR, activeC: b.maxC, lockRow: false, lockCol: false, cursor: 'nesw-resize' },
+      { px: offX + b.minC       * cs, py: offY + (b.maxR + 1) * cs, fixedR: b.minR, fixedC: b.maxC, activeR: b.maxR, activeC: b.minC, lockRow: false, lockCol: false, cursor: 'nesw-resize' },
+      { px: offX + (b.maxC + 1) * cs, py: offY + (b.maxR + 1) * cs, fixedR: b.minR, fixedC: b.minC, activeR: b.maxR, activeC: b.maxC, lockRow: false, lockCol: false, cursor: 'nwse-resize' },
+      { px: midX,                      py: offY + b.minR       * cs, fixedR: b.maxR, fixedC: b.minC, activeR: b.minR, activeC: b.maxC, lockRow: false, lockCol: true,  cursor: 'ns-resize'   },
+      { px: midX,                      py: offY + (b.maxR + 1) * cs, fixedR: b.minR, fixedC: b.minC, activeR: b.maxR, activeC: b.maxC, lockRow: false, lockCol: true,  cursor: 'ns-resize'   },
+      { px: offX + b.minC       * cs,  py: midY,                     fixedR: b.minR, fixedC: b.maxC, activeR: b.maxR, activeC: b.minC, lockRow: true,  lockCol: false, cursor: 'ew-resize'   },
+      { px: offX + (b.maxC + 1) * cs,  py: midY,                     fixedR: b.minR, fixedC: b.minC, activeR: b.maxR, activeC: b.maxC, lockRow: true,  lockCol: false, cursor: 'ew-resize'   },
+    ];
 
-      const midX = offX + (b.minC + b.maxC + 1) / 2 * cellSize;
-      const midY = offY + (b.minR + b.maxR + 1) / 2 * cellSize;
-
-      type HandleDef = { px: number; py: number; fixedR: number; fixedC: number; activeR: number; activeC: number; lockRow: boolean; lockCol: boolean; cursor: string };
-      const handles: HandleDef[] = [
-        // corners (both dimensions free)
-        { px: offX + b.minC       * cellSize, py: offY + b.minR       * cellSize, fixedR: b.maxR, fixedC: b.maxC, activeR: b.minR, activeC: b.minC, lockRow: false, lockCol: false, cursor: 'nwse-resize' },
-        { px: offX + (b.maxC + 1) * cellSize, py: offY + b.minR       * cellSize, fixedR: b.maxR, fixedC: b.minC, activeR: b.minR, activeC: b.maxC, lockRow: false, lockCol: false, cursor: 'nesw-resize' },
-        { px: offX + b.minC       * cellSize, py: offY + (b.maxR + 1) * cellSize, fixedR: b.minR, fixedC: b.maxC, activeR: b.maxR, activeC: b.minC, lockRow: false, lockCol: false, cursor: 'nesw-resize' },
-        { px: offX + (b.maxC + 1) * cellSize, py: offY + (b.maxR + 1) * cellSize, fixedR: b.minR, fixedC: b.minC, activeR: b.maxR, activeC: b.maxC, lockRow: false, lockCol: false, cursor: 'nwse-resize' },
-        // edges (one dimension locked)
-        { px: midX,                            py: offY + b.minR       * cellSize, fixedR: b.maxR, fixedC: b.minC, activeR: b.minR, activeC: b.maxC, lockRow: false, lockCol: true,  cursor: 'ns-resize' },
-        { px: midX,                            py: offY + (b.maxR + 1) * cellSize, fixedR: b.minR, fixedC: b.minC, activeR: b.maxR, activeC: b.maxC, lockRow: false, lockCol: true,  cursor: 'ns-resize' },
-        { px: offX + b.minC       * cellSize,  py: midY,                           fixedR: b.minR, fixedC: b.maxC, activeR: b.maxR, activeC: b.minC, lockRow: true,  lockCol: false, cursor: 'ew-resize' },
-        { px: offX + (b.maxC + 1) * cellSize,  py: midY,                           fixedR: b.minR, fixedC: b.minC, activeR: b.maxR, activeC: b.maxC, lockRow: true,  lockCol: false, cursor: 'ew-resize' },
-      ];
-
-      for (const h of handles) {
-        const handle = document.createElement('div');
-        handle.className        = 'group-resize-handle';
-        handle.style.left       = `${h.px - HALF}px`;
-        handle.style.top        = `${h.py - HALF}px`;
-        handle.style.background = color;
-        handle.style.cursor     = h.cursor;
-        if (h.lockRow || h.lockCol) handle.style.borderRadius = '50%';
-        handle.addEventListener('mousedown', (e: MouseEvent) => {
-          e.preventDefault();
-          e.stopPropagation();
-          this.captureSnapshot();
-          this.startResize(group.id, h.fixedR, h.fixedC, h.activeR, h.activeC, h.lockRow, h.lockCol);
-        });
-        layer.appendChild(handle);
-      }
+    for (const h of handles) {
+      const handle = document.createElement('div');
+      handle.className        = 'group-resize-handle';
+      handle.style.left       = `${h.px - HALF}px`;
+      handle.style.top        = `${h.py - HALF}px`;
+      handle.style.background = color;
+      handle.style.cursor     = h.cursor;
+      if (h.lockRow || h.lockCol) handle.style.borderRadius = '50%';
+      handle.addEventListener('mousedown', (e: MouseEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        this.captureSnapshot();
+        this.startResize(group.id, h.fixedR, h.fixedC, h.activeR, h.activeC, h.lockRow, h.lockCol);
+      });
+      layer.appendChild(handle);
     }
   }
 
@@ -745,23 +724,17 @@ export class GardenGrid {
     this.resizeLockCol  = lockCol;
     this.resizeSnapshot.clear();
 
-    const grid = document.getElementById('garden-grid')!;
-    for (let r = 0; r < this.rows; r++) {
-      for (let c = 0; c < this.cols; c++) {
-        const cell = grid.children[r * this.cols + c] as HTMLElement;
-        if (cell.dataset['groupId'] === groupId) {
-          this.resizeSnapshot.set(`${r},${c}`, {
-            zone:    cell.dataset['zone'],
-            color:   cell.dataset['customColor'],
-            groupId: cell.dataset['groupId'],
-          });
-        }
-      }
+    const n = this.rows * this.cols;
+    for (let i = 0; i < n; i++) {
+      const cell = this.cellEls[i];
+      if (cell.dataset['groupId'] !== groupId) continue;
+      const r = Math.floor(i / this.cols);
+      const c = i % this.cols;
+      this.resizeSnapshot.set(`${r},${c}`, { zone: cell.dataset['zone'], color: cell.dataset['customColor'], groupId: cell.dataset['groupId'] });
     }
   }
 
   private updateResizeBox(newR: number, newC: number): void {
-    const grid   = document.getElementById('garden-grid')!;
     const cols   = this.cols;
     const fixedR = this.resizeFixedR;
     const fixedC = this.resizeFixedC;
@@ -781,7 +754,7 @@ export class GardenGrid {
 
     for (let r = oldMinR; r <= oldMaxR; r++) {
       for (let c = oldMinC; c <= oldMaxC; c++) {
-        if (!inNew(r, c)) this.restoreResizeCell(grid, r, c, cols);
+        if (!inNew(r, c)) this.restoreResizeCell(r, c, cols);
       }
     }
 
@@ -790,7 +763,7 @@ export class GardenGrid {
     for (let r = newMinR; r <= newMaxR; r++) {
       for (let c = newMinC; c <= newMaxC; c++) {
         const key  = `${r},${c}`;
-        const cell = grid.children[r * cols + c] as HTMLElement;
+        const cell = this.cellEls[r * cols + c];
         if (!cell) continue;
         if (!this.resizeSnapshot.has(key)) {
           this.resizeSnapshot.set(key, { zone: cell.dataset['zone'], color: cell.dataset['customColor'], groupId: cell.dataset['groupId'] });
@@ -807,15 +780,13 @@ export class GardenGrid {
     this.resizeCurrentR = newR;
     this.resizeCurrentC = newC;
     this.applyGroupBorders();
-    this.applyGroupHandles();
   }
 
-  private restoreResizeCell(grid: HTMLElement, r: number, c: number, cols: number): void {
-    const cell = grid.children[r * cols + c] as HTMLElement;
+  private restoreResizeCell(r: number, c: number, cols: number): void {
+    const cell = this.cellEls[r * cols + c];
     if (!cell) return;
     const snap = this.resizeSnapshot.get(`${r},${c}`);
 
-    // Cell was originally part of this group — shrinking removes it entirely
     if (!snap || snap.groupId === this.resizeGroupId) {
       delete cell.dataset['zone'];
       delete cell.dataset['customColor'];
@@ -825,7 +796,6 @@ export class GardenGrid {
       return;
     }
 
-    // Cell was outside the group — restore its pre-resize state
     if (snap.color) {
       cell.style.background       = snap.color;
       cell.dataset['zone']        = 'custom';
@@ -845,33 +815,29 @@ export class GardenGrid {
 
   // ─── Group move ──────────────────────────────────────────────────────────────
   private startMove(groupId: string, anchorR: number, anchorC: number): void {
-    this.isMoving         = true;
-    this.moveGroupId      = groupId;
-    this.moveAnchorR      = anchorR;
-    this.moveAnchorC      = anchorC;
-    this.moveDeltaR       = 0;
-    this.moveDeltaC       = 0;
+    this.isMoving          = true;
+    this.moveGroupId       = groupId;
+    this.moveAnchorR       = anchorR;
+    this.moveAnchorC       = anchorC;
+    this.moveDeltaR        = 0;
+    this.moveDeltaC        = 0;
     this.moveOriginalCells = [];
     this.moveSnapshot.clear();
 
     let minR = Infinity, maxR = -Infinity, minC = Infinity, maxC = -Infinity;
-    const grid = document.getElementById('garden-grid')!;
+    const n = this.rows * this.cols;
 
-    for (let r = 0; r < this.rows; r++) {
-      for (let c = 0; c < this.cols; c++) {
-        const cell = grid.children[r * this.cols + c] as HTMLElement;
-        if (cell.dataset['groupId'] !== groupId) continue;
-        this.moveOriginalCells.push({ r, c });
-        this.moveSnapshot.set(`${r},${c}`, {
-          zone:    cell.dataset['zone'],
-          color:   cell.dataset['customColor'],
-          groupId: cell.dataset['groupId'],
-        });
-        if (r < minR) minR = r;
-        if (r > maxR) maxR = r;
-        if (c < minC) minC = c;
-        if (c > maxC) maxC = c;
-      }
+    for (let i = 0; i < n; i++) {
+      const cell = this.cellEls[i];
+      if (cell.dataset['groupId'] !== groupId) continue;
+      const r = Math.floor(i / this.cols);
+      const c = i % this.cols;
+      this.moveOriginalCells.push({ r, c });
+      this.moveSnapshot.set(`${r},${c}`, { zone: cell.dataset['zone'], color: cell.dataset['customColor'], groupId: cell.dataset['groupId'] });
+      if (r < minR) minR = r;
+      if (r > maxR) maxR = r;
+      if (c < minC) minC = c;
+      if (c > maxC) maxC = c;
     }
 
     this.moveBoundsMinR = minR;
@@ -881,23 +847,16 @@ export class GardenGrid {
   }
 
   private updateMovePosition(newDeltaR: number, newDeltaC: number): void {
-    const grid = document.getElementById('garden-grid')!;
     const cols = this.cols;
 
-    const oldPositions = new Set(
-      this.moveOriginalCells.map(({ r, c }) => `${r + this.moveDeltaR},${c + this.moveDeltaC}`)
-    );
-    const newPositions = new Set(
-      this.moveOriginalCells.map(({ r, c }) => `${r + newDeltaR},${c + newDeltaC}`)
-    );
+    const oldPositions = new Set(this.moveOriginalCells.map(({ r, c }) => `${r + this.moveDeltaR},${c + this.moveDeltaC}`));
+    const newPositions = new Set(this.moveOriginalCells.map(({ r, c }) => `${r + newDeltaR},${c + newDeltaC}`));
 
-    // Detect conflict before modifying the DOM: check cells the group is newly entering
     let hasConflict = false;
     for (const { r: origR, c: origC } of this.moveOriginalCells) {
       const key = `${origR + newDeltaR},${origC + newDeltaC}`;
       if (oldPositions.has(key)) continue;
-      const cell = grid.children[(origR + newDeltaR) * cols + (origC + newDeltaC)] as HTMLElement;
-      const gid  = cell?.dataset['groupId'];
+      const gid = this.cellEls[(origR + newDeltaR) * cols + (origC + newDeltaC)]?.dataset['groupId'];
       if (gid && gid !== this.moveGroupId) { hasConflict = true; break; }
     }
     this.moveHasConflict = hasConflict;
@@ -905,7 +864,7 @@ export class GardenGrid {
     for (const key of oldPositions) {
       if (!newPositions.has(key)) {
         const [r, c] = key.split(',').map(Number);
-        this.restoreMoveCell(grid, r, c, cols);
+        this.restoreMoveCell(r, c, cols);
       }
     }
 
@@ -916,16 +875,10 @@ export class GardenGrid {
       const c   = origC + newDeltaC;
       const key = `${r},${c}`;
       if (!oldPositions.has(key) && !this.moveSnapshot.has(key)) {
-        const snapCell = grid.children[r * cols + c] as HTMLElement;
-        if (snapCell) {
-          this.moveSnapshot.set(key, {
-            zone:    snapCell.dataset['zone'],
-            color:   snapCell.dataset['customColor'],
-            groupId: snapCell.dataset['groupId'],
-          });
-        }
+        const snapCell = this.cellEls[r * cols + c];
+        if (snapCell) this.moveSnapshot.set(key, { zone: snapCell.dataset['zone'], color: snapCell.dataset['customColor'], groupId: snapCell.dataset['groupId'] });
       }
-      const cell = grid.children[r * cols + c] as HTMLElement;
+      const cell = this.cellEls[r * cols + c];
       if (!cell) continue;
       if (plantColor) {
         cell.style.background       = plantColor;
@@ -939,7 +892,6 @@ export class GardenGrid {
     this.moveDeltaR = newDeltaR;
     this.moveDeltaC = newDeltaC;
     this.applyGroupBorders();
-    this.applyGroupHandles();
   }
 
   // ─── Group context menu ──────────────────────────────────────────────────────
@@ -951,7 +903,6 @@ export class GardenGrid {
     menu.style.left = `${x}px`;
     menu.style.top  = `${y}px`;
 
-    // ── Undo / Redo ───────────────────────────────────────────────────────────
     const makeShortcutItem = (label: string, shortcut: string, disabled: boolean, action: () => void) => {
       const item = document.createElement('div');
       item.className = `context-menu-item${disabled ? ' disabled' : ''}`;
@@ -980,7 +931,6 @@ export class GardenGrid {
     sep0.className = 'context-menu-separator';
     menu.appendChild(sep0);
 
-    // ── Plan-level items ──────────────────────────────────────────────────────
     const notesItem = document.createElement('div');
     notesItem.className   = 'context-menu-item';
     notesItem.textContent = 'Edit Garden Plan Details';
@@ -992,12 +942,10 @@ export class GardenGrid {
     });
     menu.appendChild(notesItem);
 
-    // ── Separator ─────────────────────────────────────────────────────────────
     const sep = document.createElement('div');
     sep.className = 'context-menu-separator';
     menu.appendChild(sep);
 
-    // ── Group-level items (disabled when no group) ────────────────────────────
     const editItem = document.createElement('div');
     editItem.className   = `context-menu-item${groupId ? '' : ' disabled'}`;
     editItem.textContent = 'Edit Planting Group';
@@ -1034,7 +982,6 @@ export class GardenGrid {
 
   private showEditPlanNotesDialog(): void {
     let pending = this.planNotes;
-
     this.dialogService.createDialog()
       .setTitle('Plan Notes')
       .setDialogContent(EditPlanNotesComponent, {
@@ -1085,24 +1032,20 @@ export class GardenGrid {
   private repaintGroupCells(groupId: string, plant: string): void {
     const color = PLANT_MAP[plant]?.color;
     if (!color) return;
-    const grid = document.getElementById('garden-grid')!;
-    for (let r = 0; r < this.rows; r++) {
-      for (let c = 0; c < this.cols; c++) {
-        const cell = grid.children[r * this.cols + c] as HTMLElement;
-        if (cell.dataset['groupId'] !== groupId) continue;
-        cell.style.background       = color;
-        cell.dataset['zone']        = 'custom';
-        cell.dataset['customColor'] = color;
-      }
+    const n = this.rows * this.cols;
+    for (let i = 0; i < n; i++) {
+      const cell = this.cellEls[i];
+      if (cell.dataset['groupId'] !== groupId) continue;
+      cell.style.background       = color;
+      cell.dataset['zone']        = 'custom';
+      cell.dataset['customColor'] = color;
     }
   }
 
   private showDeleteGroupConfirmation(groupId: string): void {
     const group = this.groups.find(g => g.id === groupId);
     if (!group) return;
-
     const plantLabel = group.plant.charAt(0).toUpperCase() + group.plant.slice(1);
-
     this.dialogService.createDialog()
       .setTitle('Delete Group')
       .setDialogContent(`Remove this ${plantLabel} group and all its planted cells? This cannot be undone.`)
@@ -1139,17 +1082,15 @@ export class GardenGrid {
 
   private deleteGroup(groupId: string): void {
     this.captureSnapshot();
-    const grid = document.getElementById('garden-grid')!;
-    for (let r = 0; r < this.rows; r++) {
-      for (let c = 0; c < this.cols; c++) {
-        const cell = grid.children[r * this.cols + c] as HTMLElement;
-        if (cell.dataset['groupId'] !== groupId) continue;
-        delete cell.dataset['zone'];
-        delete cell.dataset['customColor'];
-        delete cell.dataset['groupId'];
-        cell.style.background = '';
-        cell.style.boxShadow  = '';
-      }
+    const n = this.rows * this.cols;
+    for (let i = 0; i < n; i++) {
+      const cell = this.cellEls[i];
+      if (cell.dataset['groupId'] !== groupId) continue;
+      delete cell.dataset['zone'];
+      delete cell.dataset['customColor'];
+      delete cell.dataset['groupId'];
+      cell.style.background = '';
+      cell.style.boxShadow  = '';
     }
     this.notifyChange();
   }
@@ -1196,8 +1137,8 @@ export class GardenGrid {
     this.applySnapshot(this.redoStack.pop()!);
   }
 
-  private restoreMoveCell(grid: HTMLElement, r: number, c: number, cols: number): void {
-    const cell = grid.children[r * cols + c] as HTMLElement;
+  private restoreMoveCell(r: number, c: number, cols: number): void {
+    const cell = this.cellEls[r * cols + c];
     if (!cell) return;
     const snap = this.moveSnapshot.get(`${r},${c}`);
 
