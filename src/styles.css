@@ -466,35 +466,6 @@ footer a:hover { color: var(--accent); }
   font-weight: 700;
   border-bottom: 1px solid var(--soil-light);
 }
-.context-menu-field {
-  padding: 8px 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  border-bottom: 1px solid rgba(255,255,255,0.05);
-}
-.context-menu-field label {
-  font-size: 0.6rem;
-  color: var(--accent);
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-}
-.context-menu-field input,
-.context-menu-field textarea {
-  background: #1a1209;
-  border: 1px solid var(--soil-light);
-  border-radius: 3px;
-  color: var(--cream);
-  font-family: var(--font-mono);
-  font-size: 0.78rem;
-  padding: 4px 6px;
-  outline: none;
-  resize: vertical;
-}
-.context-menu-field input::placeholder,
-.context-menu-field textarea::placeholder { color: rgba(245,240,232,0.28); }
-.context-menu-field input:focus,
-.context-menu-field textarea:focus { border-color: var(--accent); }
 .context-menu-item {
   padding: 9px 12px;
   font-size: 0.78rem;
@@ -505,3 +476,37 @@ footer a:hover { color: var(--accent); }
 .context-menu-item:hover { background: rgba(201,168,76,0.12); }
 .context-menu-item.danger { color: #e07070; }
 .context-menu-item.danger:hover { background: rgba(224,112,112,0.1); }
+
+/* ── Edit-group dialog form ── */
+.edit-group-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 4px 0 8px;
+}
+.edit-group-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.edit-group-label {
+  font-size: 0.62rem;
+  color: var(--accent);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.edit-group-input {
+  background: #1a1209;
+  border: 1px solid var(--soil-light);
+  border-radius: 3px;
+  color: var(--cream);
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  padding: 5px 8px;
+  outline: none;
+  resize: vertical;
+  width: 100%;
+  box-sizing: border-box;
+}
+.edit-group-input::placeholder { color: rgba(245,240,232,0.28); }
+.edit-group-input:focus { border-color: var(--accent); }

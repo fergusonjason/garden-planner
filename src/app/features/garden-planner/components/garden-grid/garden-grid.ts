@@ -4,6 +4,8 @@ import { ControlContainer, FormGroup } from '@angular/forms';
 
 import { PLANT_MAP } from 'src/app/shared/constants/plant-map-constants';
 import { SelectedPlant } from 'src/app/shared/models/selected-plant';
+import { DialogService } from 'src/app/shared/services/dialog-service';
+import { EditGroupComponent, EditGroupData } from '../edit-group/edit-group';
 
 export interface GardenCellData {
   x: number;
@@ -39,6 +41,7 @@ export class GardenGrid {
 
   private controlContainer = inject(ControlContainer);
   private destroyRef       = inject(DestroyRef);
+  private dialogService    = inject(DialogService);
 
   readonly paintedCount = signal<number>(0);
 
@@ -836,7 +839,7 @@ export class GardenGrid {
     const plantLabel = group.plant.charAt(0).toUpperCase() + group.plant.slice(1);
 
     const menu = document.createElement('div');
-    menu.className = 'context-menu';
+    menu.className  = 'context-menu';
     menu.style.left = `${x}px`;
     menu.style.top  = `${y}px`;
 
@@ -845,46 +848,25 @@ export class GardenGrid {
     header.textContent = plantLabel;
     menu.appendChild(header);
 
-    const subtypeRow   = document.createElement('div');
-    subtypeRow.className = 'context-menu-field';
-    const subtypeLabel = document.createElement('label');
-    subtypeLabel.textContent = 'Subtype';
-    const subtypeInput = document.createElement('input');
-    subtypeInput.type        = 'text';
-    subtypeInput.value       = group.subtype ?? '';
-    subtypeInput.placeholder = 'e.g. Cherry, Roma…';
-    subtypeInput.addEventListener('change', () => {
-      group.subtype = subtypeInput.value.trim() || undefined;
-      this.syncGroupsToForm();
+    const editItem = document.createElement('div');
+    editItem.className   = 'context-menu-item';
+    editItem.textContent = 'Edit Group…';
+    editItem.addEventListener('mousedown', (e: MouseEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      this.closeContextMenu();
+      this.showEditGroupDialog(groupId);
     });
-    subtypeRow.appendChild(subtypeLabel);
-    subtypeRow.appendChild(subtypeInput);
-    menu.appendChild(subtypeRow);
-
-    const notesRow   = document.createElement('div');
-    notesRow.className = 'context-menu-field';
-    const notesLabel = document.createElement('label');
-    notesLabel.textContent = 'Notes';
-    const notesInput = document.createElement('textarea');
-    notesInput.value       = group.notes ?? '';
-    notesInput.rows        = 3;
-    notesInput.placeholder = 'Any notes about this group…';
-    notesInput.addEventListener('change', () => {
-      group.notes = notesInput.value.trim() || undefined;
-      this.syncGroupsToForm();
-    });
-    notesRow.appendChild(notesLabel);
-    notesRow.appendChild(notesInput);
-    menu.appendChild(notesRow);
+    menu.appendChild(editItem);
 
     const deleteItem = document.createElement('div');
     deleteItem.className   = 'context-menu-item danger';
-    deleteItem.textContent = 'Delete Group';
+    deleteItem.textContent = 'Delete Group…';
     deleteItem.addEventListener('mousedown', (e: MouseEvent) => {
       e.preventDefault();
       e.stopPropagation();
-      this.deleteGroup(groupId);
       this.closeContextMenu();
+      this.showDeleteGroupConfirmation(groupId);
     });
     menu.appendChild(deleteItem);
 
@@ -894,6 +876,44 @@ export class GardenGrid {
     const rect = menu.getBoundingClientRect();
     if (rect.right  > window.innerWidth)  menu.style.left = `${x - rect.width}px`;
     if (rect.bottom > window.innerHeight) menu.style.top  = `${y - rect.height}px`;
+  }
+
+  private showEditGroupDialog(groupId: string): void {
+    const group = this.groups.find(g => g.id === groupId);
+    if (!group) return;
+
+    const plantLabel = group.plant.charAt(0).toUpperCase() + group.plant.slice(1);
+    const pending: EditGroupData = { subtype: group.subtype, notes: group.notes };
+
+    this.dialogService.createDialog()
+      .setTitle(`Edit ${plantLabel} Group`)
+      .setDialogContent(EditGroupComponent, {
+        subtype:  group.subtype ?? '',
+        notes:    group.notes   ?? '',
+        onChange: (data: EditGroupData) => Object.assign(pending, data),
+      })
+      .setWidth('360px')
+      .addAction('Cancel')
+      .addAction('Save', () => {
+        group.subtype = pending.subtype;
+        group.notes   = pending.notes;
+        this.syncGroupsToForm();
+      })
+      .open();
+  }
+
+  private showDeleteGroupConfirmation(groupId: string): void {
+    const group = this.groups.find(g => g.id === groupId);
+    if (!group) return;
+
+    const plantLabel = group.plant.charAt(0).toUpperCase() + group.plant.slice(1);
+
+    this.dialogService.createDialog()
+      .setTitle('Delete Group')
+      .setDialogContent(`Remove this ${plantLabel} group and all its planted cells? This cannot be undone.`)
+      .addAction('Cancel')
+      .addAction('Delete', () => this.deleteGroup(groupId))
+      .open();
   }
 
   private closeContextMenu(): void {
