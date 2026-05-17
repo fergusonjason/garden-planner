@@ -476,6 +476,8 @@ footer a:hover { color: var(--accent); }
 .context-menu-item:hover { background: rgba(201,168,76,0.12); }
 .context-menu-item.danger { color: #e07070; }
 .context-menu-item.danger:hover { background: rgba(224,112,112,0.1); }
+.context-menu-item.disabled { opacity: 0.35; cursor: default; pointer-events: none; }
+.context-menu-separator { height: 1px; background: var(--soil-light); margin: 2px 0; }
 
 /* ── Edit-group dialog form ── */
 .edit-group-form {

@@ -3,7 +3,7 @@ import { Injectable } from '@angular/core';
 import { GardenCellData, GardenGridValue, PlantGroup } from '../components/garden-grid/garden-grid';
 
 interface GardenSpan { x: number; y: number; len: number; plant: string; groupId?: string; }
-interface GardenJSON  { version: number; width: number; height: number; spans: GardenSpan[]; groups?: PlantGroup[]; }
+interface GardenJSON  { version: number; width: number; height: number; spans: GardenSpan[]; groups?: PlantGroup[]; notes?: string; }
 
 @Injectable({
   providedIn: 'root',
@@ -51,7 +51,7 @@ export class GardenService {
       }
     }
 
-    return { cols, rows, cells, groups };
+    return { cols, rows, cells, groups, notes: json.notes ?? '' };
   }
 
 

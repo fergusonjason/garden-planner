@@ -54,6 +54,7 @@ export class GardenPlannerMain {
       rows:   this.formBuilder.control<number>(this.defaultRows, { nonNullable: true }),
       cells:  this.formBuilder.control<GardenCellData[]>([], { nonNullable: true }),
       groups: this.formBuilder.control<PlantGroup[]>([], { nonNullable: true }),
+      notes:  this.formBuilder.control<string>('', { nonNullable: true }),
     }),
   });
 
@@ -102,7 +103,8 @@ export class GardenPlannerMain {
   applyDimensions(e: { cols: number, rows: number }): void {
     this.cols.set(e.cols);
     this.rows.set(e.rows);
-    this.planForm.controls.gardenGridData2.setValue({ cols: e.cols, rows: e.rows, cells: [], groups: [] });
+    const notes = this.planForm.controls.gardenGridData2.value.notes ?? '';
+    this.planForm.controls.gardenGridData2.setValue({ cols: e.cols, rows: e.rows, cells: [], groups: [], notes });
   }
 
   doOpenInstructions(): void {
@@ -140,7 +142,7 @@ export class GardenPlannerMain {
       .addAction('Cancel')
       .addAction('Clear', () => {
         const v = this.planForm.controls.gardenGridData2.value;
-        this.planForm.controls.gardenGridData2.setValue({ cols: v.cols!, rows: v.rows!, cells: [], groups: [] });
+        this.planForm.controls.gardenGridData2.setValue({ cols: v.cols!, rows: v.rows!, cells: [], groups: [], notes: v.notes! });
       })
       .open();
   }

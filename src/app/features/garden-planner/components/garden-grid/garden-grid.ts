@@ -6,6 +6,7 @@ import { PLANT_MAP } from 'src/app/shared/constants/plant-map-constants';
 import { SelectedPlant } from 'src/app/shared/models/selected-plant';
 import { DialogService } from 'src/app/shared/services/dialog-service';
 import { EditGroupComponent, EditGroupData } from '../edit-group/edit-group';
+import { EditPlanNotesComponent } from '../edit-plan-notes/edit-plan-notes';
 
 export interface GardenCellData {
   x: number;
@@ -22,10 +23,11 @@ export interface PlantGroup {
 }
 
 export interface GardenGridValue {
-  cols: number;
-  rows: number;
-  cells: GardenCellData[];
+  cols:   number;
+  rows:   number;
+  cells:  GardenCellData[];
   groups: PlantGroup[];
+  notes:  string;
 }
 
 
@@ -45,10 +47,11 @@ export class GardenGrid {
 
   readonly paintedCount = signal<number>(0);
 
-  private cols   = 40;
-  private rows   = 40;
-  private cells:  GardenCellData[] = [];
-  private groups: PlantGroup[]     = [];
+  private cols      = 40;
+  private rows      = 40;
+  private cells:    GardenCellData[] = [];
+  private groups:   PlantGroup[]     = [];
+  private planNotes = '';
 
   private isPainting      = false;
   private hoveredGroupId: string | null = null;
@@ -176,20 +179,22 @@ export class GardenGrid {
     this.gardenGroup.valueChanges
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe((value: GardenGridValue) => {
-        this.cols   = value.cols;
-        this.rows   = value.rows;
-        this.cells  = value.cells;
-        this.groups = value.groups ?? [];
+        this.cols      = value.cols;
+        this.rows      = value.rows;
+        this.cells     = value.cells;
+        this.groups    = value.groups ?? [];
+        this.planNotes = value.notes  ?? '';
         this.buildGrid();
         this.applyStoredCells();
       });
 
     // Apply initial value
-    const initial = this.gardenGroup.getRawValue() as GardenGridValue;
-    this.cols   = initial.cols;
-    this.rows   = initial.rows;
-    this.cells  = initial.cells;
-    this.groups = initial.groups ?? [];
+    const initial  = this.gardenGroup.getRawValue() as GardenGridValue;
+    this.cols      = initial.cols;
+    this.rows      = initial.rows;
+    this.cells     = initial.cells;
+    this.groups    = initial.groups ?? [];
+    this.planNotes = initial.notes  ?? '';
     this.buildGrid();
     this.applyStoredCells();
   }
@@ -265,10 +270,8 @@ export class GardenGrid {
         });
 
         cell.addEventListener('contextmenu', (e: MouseEvent) => {
-          const groupId = cell.dataset['groupId'];
-          if (!groupId) return;
           e.preventDefault();
-          this.showGroupContextMenu(e.clientX, e.clientY, groupId);
+          this.showContextMenu(e.clientX, e.clientY, cell.dataset['groupId'] ?? null);
         });
 
         cell.addEventListener('mousedown', (e: MouseEvent) => {
@@ -550,7 +553,7 @@ export class GardenGrid {
     const count = cells.length;
     this.paintedCount.set(count);
     this.paintedCountChange.emit(count);
-    this.gardenGroup.setValue({ cols: this.cols, rows: this.rows, cells, groups: this.groups }, { emitEvent: false });
+    this.gardenGroup.setValue({ cols: this.cols, rows: this.rows, cells, groups: this.groups, notes: this.planNotes }, { emitEvent: false });
     this.gardenGroup.markAsTouched();
     this.applyGroupBorders();
     this.applyGroupHandles();
@@ -846,43 +849,56 @@ export class GardenGrid {
   }
 
   // ─── Group context menu ──────────────────────────────────────────────────────
-  private showGroupContextMenu(x: number, y: number, groupId: string): void {
+  private showContextMenu(x: number, y: number, groupId: string | null): void {
     this.closeContextMenu();
-    const group = this.groups.find(g => g.id === groupId);
-    if (!group) return;
-
-    const plantLabel = group.plant.charAt(0).toUpperCase() + group.plant.slice(1);
 
     const menu = document.createElement('div');
     menu.className  = 'context-menu';
     menu.style.left = `${x}px`;
     menu.style.top  = `${y}px`;
 
-    const header = document.createElement('div');
-    header.className   = 'context-menu-header';
-    header.textContent = plantLabel;
-    menu.appendChild(header);
-
-    const editItem = document.createElement('div');
-    editItem.className   = 'context-menu-item';
-    editItem.textContent = 'Edit Group…';
-    editItem.addEventListener('mousedown', (e: MouseEvent) => {
+    // ── Plan-level items ──────────────────────────────────────────────────────
+    const notesItem = document.createElement('div');
+    notesItem.className   = 'context-menu-item';
+    notesItem.textContent = 'Edit Plan Notes…';
+    notesItem.addEventListener('mousedown', (e: MouseEvent) => {
       e.preventDefault();
       e.stopPropagation();
       this.closeContextMenu();
-      this.showEditGroupDialog(groupId);
+      this.showEditPlanNotesDialog();
     });
+    menu.appendChild(notesItem);
+
+    // ── Separator ─────────────────────────────────────────────────────────────
+    const sep = document.createElement('div');
+    sep.className = 'context-menu-separator';
+    menu.appendChild(sep);
+
+    // ── Group-level items (disabled when no group) ────────────────────────────
+    const editItem = document.createElement('div');
+    editItem.className   = `context-menu-item${groupId ? '' : ' disabled'}`;
+    editItem.textContent = 'Edit Group…';
+    if (groupId) {
+      editItem.addEventListener('mousedown', (e: MouseEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        this.closeContextMenu();
+        this.showEditGroupDialog(groupId);
+      });
+    }
     menu.appendChild(editItem);
 
     const deleteItem = document.createElement('div');
-    deleteItem.className   = 'context-menu-item danger';
+    deleteItem.className   = `context-menu-item danger${groupId ? '' : ' disabled'}`;
     deleteItem.textContent = 'Delete Group…';
-    deleteItem.addEventListener('mousedown', (e: MouseEvent) => {
-      e.preventDefault();
-      e.stopPropagation();
-      this.closeContextMenu();
-      this.showDeleteGroupConfirmation(groupId);
-    });
+    if (groupId) {
+      deleteItem.addEventListener('mousedown', (e: MouseEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        this.closeContextMenu();
+        this.showDeleteGroupConfirmation(groupId);
+      });
+    }
     menu.appendChild(deleteItem);
 
     document.body.appendChild(menu);
@@ -891,6 +907,24 @@ export class GardenGrid {
     const rect = menu.getBoundingClientRect();
     if (rect.right  > window.innerWidth)  menu.style.left = `${x - rect.width}px`;
     if (rect.bottom > window.innerHeight) menu.style.top  = `${y - rect.height}px`;
+  }
+
+  private showEditPlanNotesDialog(): void {
+    let pending = this.planNotes;
+
+    this.dialogService.createDialog()
+      .setTitle('Plan Notes')
+      .setDialogContent(EditPlanNotesComponent, {
+        notes:    this.planNotes,
+        onChange: (v: string) => { pending = v; },
+      })
+      .setWidth('400px')
+      .addAction('Cancel')
+      .addAction('Save', () => {
+        this.planNotes = pending;
+        this.notifyChange();
+      })
+      .open();
   }
 
   private showEditGroupDialog(groupId: string): void {
