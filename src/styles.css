@@ -484,6 +484,22 @@ footer a:hover { color: var(--accent); }
 .context-menu-shortcut { font-size: 0.68rem; color: rgba(201,168,76,0.5); flex-shrink: 0; }
 .context-menu-separator { height: 1px; background: var(--soil-light); margin: 2px 0; }
 
+/* Group hover tooltip */
+.group-tooltip {
+  position: fixed;
+  background: #2a1a0e;
+  border: 1px solid var(--accent);
+  border-radius: 4px;
+  padding: 5px 10px;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--cream);
+  pointer-events: none;
+  z-index: 400;
+  white-space: nowrap;
+  letter-spacing: 0.04em;
+}
+
 /* ── Edit-group dialog form ── */
 .edit-group-form {
   display: flex;

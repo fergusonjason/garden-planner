@@ -56,6 +56,7 @@ export class GardenGrid {
   private isPainting      = false;
   private hoveredGroupId: string | null = null;
   private contextMenu:    HTMLElement | null = null;
+  private tooltipEl:      HTMLElement | null = null;
   private gridMouseMoveListener: ((e: MouseEvent) => void) | null = null;
 
   // Box drawing state (ctrl+drag)
@@ -225,6 +226,7 @@ export class GardenGrid {
 
   // ─── Grid ───────────────────────────────────────────────────────────────────
   private buildGrid(): void {
+    this.hideGroupTooltip();
     const grid   = document.getElementById('garden-grid')!;
     const rulerX = document.getElementById('ruler-x')!;
     const rulerY = document.getElementById('ruler-y')!;
@@ -273,6 +275,13 @@ export class GardenGrid {
             if (gid !== this.hoveredGroupId) {
               this.hoveredGroupId = gid;
               this.applyGroupHandles();
+              if (gid) {
+                const group = this.groups.find(g => g.id === gid);
+                if (group) this.showGroupTooltip(group, e.clientX, e.clientY);
+                else       this.hideGroupTooltip();
+              } else {
+                this.hideGroupTooltip();
+              }
             }
           }
           if (!this.isPainting) return;
@@ -324,6 +333,10 @@ export class GardenGrid {
     }
 
     this.gridMouseMoveListener = (e: MouseEvent) => {
+      if (this.tooltipEl) {
+        this.tooltipEl.style.left = `${e.clientX + 14}px`;
+        this.tooltipEl.style.top  = `${e.clientY + 14}px`;
+      }
       if (!this.isPainting || !this.isBoxDrawing) return;
 
       const rect     = grid.getBoundingClientRect();
@@ -341,6 +354,7 @@ export class GardenGrid {
     };
     grid.addEventListener('mousemove', this.gridMouseMoveListener);
     grid.addEventListener('mouseleave', () => {
+      this.hideGroupTooltip();
       if (!this.isResizing && !this.isMoving && this.hoveredGroupId !== null) {
         this.hoveredGroupId = null;
         this.applyGroupHandles();
@@ -906,7 +920,7 @@ export class GardenGrid {
     // ── Plan-level items ──────────────────────────────────────────────────────
     const notesItem = document.createElement('div');
     notesItem.className   = 'context-menu-item';
-    notesItem.textContent = 'Edit Plan Notes…';
+    notesItem.textContent = 'Edit Garden Plan Details';
     notesItem.addEventListener('mousedown', (e: MouseEvent) => {
       e.preventDefault();
       e.stopPropagation();
@@ -923,7 +937,7 @@ export class GardenGrid {
     // ── Group-level items (disabled when no group) ────────────────────────────
     const editItem = document.createElement('div');
     editItem.className   = `context-menu-item${groupId ? '' : ' disabled'}`;
-    editItem.textContent = 'Edit Group…';
+    editItem.textContent = 'Edit Planting Group';
     if (groupId) {
       editItem.addEventListener('mousedown', (e: MouseEvent) => {
         e.preventDefault();
@@ -936,7 +950,7 @@ export class GardenGrid {
 
     const deleteItem = document.createElement('div');
     deleteItem.className   = `context-menu-item danger${groupId ? '' : ' disabled'}`;
-    deleteItem.textContent = 'Delete Group…';
+    deleteItem.textContent = 'Delete Planting Group';
     if (groupId) {
       deleteItem.addEventListener('mousedown', (e: MouseEvent) => {
         e.preventDefault();
@@ -1037,6 +1051,27 @@ export class GardenGrid {
   private closeContextMenu(): void {
     this.contextMenu?.remove();
     this.contextMenu = null;
+  }
+
+  // ─── Group tooltip ───────────────────────────────────────────────────────────
+  private showGroupTooltip(group: PlantGroup, x: number, y: number): void {
+    this.hideGroupTooltip();
+    const el = document.createElement('div');
+    el.className = 'group-tooltip';
+    const plantLabel = group.plant.charAt(0).toUpperCase() + group.plant.slice(1);
+    el.textContent   = group.subtype ? `${plantLabel} · ${group.subtype}` : plantLabel;
+    el.style.left    = `${x + 14}px`;
+    el.style.top     = `${y + 14}px`;
+    document.body.appendChild(el);
+    this.tooltipEl = el;
+    const rect = el.getBoundingClientRect();
+    if (rect.right  > window.innerWidth)  el.style.left = `${x - rect.width  - 6}px`;
+    if (rect.bottom > window.innerHeight) el.style.top  = `${y - rect.height - 6}px`;
+  }
+
+  private hideGroupTooltip(): void {
+    this.tooltipEl?.remove();
+    this.tooltipEl = null;
   }
 
   private deleteGroup(groupId: string): void {
