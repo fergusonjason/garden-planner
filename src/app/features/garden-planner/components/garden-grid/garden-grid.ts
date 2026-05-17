@@ -430,6 +430,69 @@ export class GardenGrid {
         cell.style.boxShadow = shadows.join(', ');
       }
     }
+    this.applyGroupLabels();
+  }
+
+  private static relativeLuminance(hex: string): number {
+    const r = parseInt(hex.slice(1, 3), 16) / 255;
+    const g = parseInt(hex.slice(3, 5), 16) / 255;
+    const b = parseInt(hex.slice(5, 7), 16) / 255;
+    const lin = (c: number) => c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+    return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
+  }
+
+  private applyGroupLabels(): void {
+    const layer  = document.getElementById('group-labels-layer');
+    const gridEl = document.getElementById('garden-grid');
+    if (!layer || !gridEl) return;
+
+    layer.innerHTML = '';
+
+    const cellSize  = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--cell-size'));
+    const layerRect = layer.parentElement!.getBoundingClientRect();
+    const gridRect  = gridEl.getBoundingClientRect();
+    const offX      = gridRect.left - layerRect.left;
+    const offY      = gridRect.top  - layerRect.top;
+
+    for (const group of this.groups) {
+      let minR = Infinity, maxR = -Infinity, minC = Infinity, maxC = -Infinity;
+      for (let r = 0; r < this.rows; r++) {
+        for (let c = 0; c < this.cols; c++) {
+          const gid = (gridEl.children[r * this.cols + c] as HTMLElement).dataset['groupId'];
+          if (gid !== group.id) continue;
+          if (r < minR) minR = r;
+          if (r > maxR) maxR = r;
+          if (c < minC) minC = c;
+          if (c > maxC) maxC = c;
+        }
+      }
+      if (minR === Infinity) continue;
+
+      const widthCells  = maxC - minC + 1;
+      const heightCells = maxR - minR + 1;
+
+      const plantLabel = group.plant.charAt(0).toUpperCase() + group.plant.slice(1);
+      const text       = group.subtype ? `${plantLabel} · ${group.subtype}` : plantLabel;
+
+      const plantColor = PLANT_MAP[group.plant]?.color ?? '#000000';
+      const luminance  = GardenGrid.relativeLuminance(plantColor);
+      const lightBg    = luminance > 0.35;
+
+      const el = document.createElement('div');
+      el.className        = 'group-label';
+      el.textContent      = text;
+      el.style.left       = `${offX + minC * cellSize}px`;
+      el.style.top        = `${offY + minR * cellSize}px`;
+      el.style.width      = `${widthCells  * cellSize}px`;
+      el.style.height     = `${heightCells * cellSize}px`;
+      el.style.color      = lightBg ? 'rgba(26,18,9,0.85)'   : 'rgba(255,255,255,0.85)';
+      el.style.textShadow = lightBg ? 'none'                  : '0 1px 3px rgba(0,0,0,0.9)';
+      if (heightCells > widthCells) {
+        el.style.writingMode = 'vertical-lr';
+        el.style.transform   = 'rotate(180deg)';
+      }
+      layer.appendChild(el);
+    }
   }
 
   // ─── Paint ──────────────────────────────────────────────────────────────────

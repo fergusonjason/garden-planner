@@ -137,6 +137,26 @@ header h1 {
 .grid-container {
   position: relative;
 }
+#group-labels-layer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+  overflow: visible;
+  z-index: 5;
+}
+.group-label {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  overflow: hidden;
+  letter-spacing: 0.06em;
+  user-select: none;
+  pointer-events: none;
+}
 #group-handles-layer {
   position: absolute;
   top: 0;
