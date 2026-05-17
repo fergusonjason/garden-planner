@@ -49,6 +49,7 @@ export class GardenGrid {
 
   private isPainting      = false;
   private hoveredGroupId: string | null = null;
+  private contextMenu:    HTMLElement | null = null;
   private gridMouseMoveListener: ((e: MouseEvent) => void) | null = null;
 
   // Box drawing state (ctrl+drag)
@@ -97,6 +98,16 @@ export class GardenGrid {
     if (this.resizeLockCol) c = this.resizeCurrentC;
     if (r === this.resizeCurrentR && c === this.resizeCurrentC) return;
     this.updateResizeBox(r, c);
+  };
+
+  private readonly contextMenuCloseHandler = (e: MouseEvent) => {
+    if (this.contextMenu && !this.contextMenu.contains(e.target as Node)) {
+      this.closeContextMenu();
+    }
+  };
+
+  private readonly contextMenuKeyHandler = (e: KeyboardEvent) => {
+    if (e.key === 'Escape') this.closeContextMenu();
   };
 
   private readonly moveDragHandler = (e: MouseEvent) => {
@@ -152,6 +163,8 @@ export class GardenGrid {
     document.addEventListener('mouseup',   this.mouseUpListener);
     document.addEventListener('mousemove', this.resizeMoveHandler);
     document.addEventListener('mousemove', this.moveDragHandler);
+    document.addEventListener('mousedown', this.contextMenuCloseHandler);
+    document.addEventListener('keydown',   this.contextMenuKeyHandler);
 
     // React to external writes (applyDimensions, loadPlan, clearGrid)
     this.gardenGroup.valueChanges
@@ -179,6 +192,9 @@ export class GardenGrid {
     document.removeEventListener('mouseup',   this.mouseUpListener);
     document.removeEventListener('mousemove', this.resizeMoveHandler);
     document.removeEventListener('mousemove', this.moveDragHandler);
+    document.removeEventListener('mousedown', this.contextMenuCloseHandler);
+    document.removeEventListener('keydown',   this.contextMenuKeyHandler);
+    this.closeContextMenu();
   }
 
   // ─── Grid ───────────────────────────────────────────────────────────────────
@@ -240,6 +256,13 @@ export class GardenGrid {
             return;
           }
           this.paintCell(cell);
+        });
+
+        cell.addEventListener('contextmenu', (e: MouseEvent) => {
+          const groupId = cell.dataset['groupId'];
+          if (!groupId) return;
+          e.preventDefault();
+          this.showGroupContextMenu(e.clientX, e.clientY, groupId);
         });
 
         cell.addEventListener('mousedown', (e: MouseEvent) => {
@@ -802,6 +825,104 @@ export class GardenGrid {
     this.moveDeltaC = newDeltaC;
     this.applyGroupBorders();
     this.applyGroupHandles();
+  }
+
+  // ─── Group context menu ──────────────────────────────────────────────────────
+  private showGroupContextMenu(x: number, y: number, groupId: string): void {
+    this.closeContextMenu();
+    const group = this.groups.find(g => g.id === groupId);
+    if (!group) return;
+
+    const plantLabel = group.plant.charAt(0).toUpperCase() + group.plant.slice(1);
+
+    const menu = document.createElement('div');
+    menu.className = 'context-menu';
+    menu.style.left = `${x}px`;
+    menu.style.top  = `${y}px`;
+
+    const header = document.createElement('div');
+    header.className   = 'context-menu-header';
+    header.textContent = plantLabel;
+    menu.appendChild(header);
+
+    const subtypeRow   = document.createElement('div');
+    subtypeRow.className = 'context-menu-field';
+    const subtypeLabel = document.createElement('label');
+    subtypeLabel.textContent = 'Subtype';
+    const subtypeInput = document.createElement('input');
+    subtypeInput.type        = 'text';
+    subtypeInput.value       = group.subtype ?? '';
+    subtypeInput.placeholder = 'e.g. Cherry, Roma…';
+    subtypeInput.addEventListener('change', () => {
+      group.subtype = subtypeInput.value.trim() || undefined;
+      this.syncGroupsToForm();
+    });
+    subtypeRow.appendChild(subtypeLabel);
+    subtypeRow.appendChild(subtypeInput);
+    menu.appendChild(subtypeRow);
+
+    const notesRow   = document.createElement('div');
+    notesRow.className = 'context-menu-field';
+    const notesLabel = document.createElement('label');
+    notesLabel.textContent = 'Notes';
+    const notesInput = document.createElement('textarea');
+    notesInput.value       = group.notes ?? '';
+    notesInput.rows        = 3;
+    notesInput.placeholder = 'Any notes about this group…';
+    notesInput.addEventListener('change', () => {
+      group.notes = notesInput.value.trim() || undefined;
+      this.syncGroupsToForm();
+    });
+    notesRow.appendChild(notesLabel);
+    notesRow.appendChild(notesInput);
+    menu.appendChild(notesRow);
+
+    const deleteItem = document.createElement('div');
+    deleteItem.className   = 'context-menu-item danger';
+    deleteItem.textContent = 'Delete Group';
+    deleteItem.addEventListener('mousedown', (e: MouseEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      this.deleteGroup(groupId);
+      this.closeContextMenu();
+    });
+    menu.appendChild(deleteItem);
+
+    document.body.appendChild(menu);
+    this.contextMenu = menu;
+
+    const rect = menu.getBoundingClientRect();
+    if (rect.right  > window.innerWidth)  menu.style.left = `${x - rect.width}px`;
+    if (rect.bottom > window.innerHeight) menu.style.top  = `${y - rect.height}px`;
+  }
+
+  private closeContextMenu(): void {
+    this.contextMenu?.remove();
+    this.contextMenu = null;
+  }
+
+  private deleteGroup(groupId: string): void {
+    const grid = document.getElementById('garden-grid')!;
+    for (let r = 0; r < this.rows; r++) {
+      for (let c = 0; c < this.cols; c++) {
+        const cell = grid.children[r * this.cols + c] as HTMLElement;
+        if (cell.dataset['groupId'] !== groupId) continue;
+        delete cell.dataset['zone'];
+        delete cell.dataset['customColor'];
+        delete cell.dataset['groupId'];
+        cell.style.background = '';
+        cell.style.boxShadow  = '';
+      }
+    }
+    this.notifyChange();
+  }
+
+  private syncGroupsToForm(): void {
+    this.gardenGroup.setValue(
+      { cols: this.cols, rows: this.rows, cells: this.cells, groups: this.groups },
+      { emitEvent: false }
+    );
+    this.gardenGroup.markAsTouched();
   }
 
   private restoreMoveCell(grid: HTMLElement, r: number, c: number, cols: number): void {
