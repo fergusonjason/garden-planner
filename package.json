@@ -6,7 +6,10 @@
     "start": "ng serve",
     "build": "ng build",
     "watch": "ng build --watch --configuration development",
-    "deploy": "ng build --configuration production --base-href /garden-planner/ && npx angular-cli-ghpages --dir=dist/garden-planner/browser"
+    "deploy": "ng build --configuration production --base-href /garden-planner/ && npx angular-cli-ghpages --dir=dist/garden-planner/browser",
+    "release": "standard-version",
+    "release:minor": "standard-version --release-as minor",
+    "release:major": "standard-version --release-as major"
   },
   "dependencies": {
     "@angular/animations": "^21.2.5",
