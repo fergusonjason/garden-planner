@@ -58,11 +58,43 @@ export class GardenGrid {
   private boxEndCol    = 0;
   private boxSnapshot  = new Map<string, { zone: string | undefined; color: string | undefined; groupId: string | undefined }>();
 
+  // Group resize state
+  private isResizing     = false;
+  private resizeGroupId  = '';
+  private resizeFixedR   = 0;
+  private resizeFixedC   = 0;
+  private resizeCurrentR = 0;
+  private resizeCurrentC = 0;
+  private resizeLockRow  = false;  // edge handles: freeze row dimension
+  private resizeLockCol  = false;  // edge handles: freeze col dimension
+  private resizeSnapshot = new Map<string, { zone: string | undefined; color: string | undefined; groupId: string | undefined }>();
+
+  private readonly resizeMoveHandler = (e: MouseEvent) => {
+    if (!this.isResizing) return;
+    const grid     = document.getElementById('garden-grid')!;
+    const rect     = grid.getBoundingClientRect();
+    const cellSize = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--cell-size'));
+    let c = Math.floor((e.clientX - rect.left) / cellSize);
+    let r = Math.floor((e.clientY - rect.top)  / cellSize);
+    c = Math.max(0, Math.min(this.cols - 1, c));
+    r = Math.max(0, Math.min(this.rows - 1, r));
+    if (this.resizeLockRow) r = this.resizeCurrentR;
+    if (this.resizeLockCol) c = this.resizeCurrentC;
+    if (r === this.resizeCurrentR && c === this.resizeCurrentC) return;
+    this.updateResizeBox(r, c);
+  };
+
   private get gardenGroup(): FormGroup {
     return this.controlContainer.control as FormGroup;
   }
 
   private mouseUpListener = () => {
+    if (this.isResizing) {
+      this.notifyChange();
+      this.isResizing = false;
+      this.resizeSnapshot.clear();
+      return;
+    }
     if (this.isPainting) {
       if (this.isBoxDrawing) this.commitBox();
       this.notifyChange();
@@ -74,7 +106,8 @@ export class GardenGrid {
 
   // ─── Lifecycle ───────────────────────────────────────────────────────────────
   ngAfterViewInit(): void {
-    document.addEventListener('mouseup', this.mouseUpListener);
+    document.addEventListener('mouseup',   this.mouseUpListener);
+    document.addEventListener('mousemove', this.resizeMoveHandler);
 
     // React to external writes (applyDimensions, loadPlan, clearGrid)
     this.gardenGroup.valueChanges
@@ -99,7 +132,8 @@ export class GardenGrid {
   }
 
   ngOnDestroy(): void {
-    document.removeEventListener('mouseup', this.mouseUpListener);
+    document.removeEventListener('mouseup',   this.mouseUpListener);
+    document.removeEventListener('mousemove', this.resizeMoveHandler);
   }
 
   // ─── Grid ───────────────────────────────────────────────────────────────────
@@ -226,6 +260,7 @@ export class GardenGrid {
     this.paintedCount.set(count);
     this.paintedCountChange.emit(count);
     this.applyGroupBorders();
+    this.applyGroupHandles();
   }
 
   private static readonly GROUP_COLORS = [
@@ -425,5 +460,190 @@ export class GardenGrid {
     this.gardenGroup.setValue({ cols: this.cols, rows: this.rows, cells, groups: this.groups }, { emitEvent: false });
     this.gardenGroup.markAsTouched();
     this.applyGroupBorders();
+    this.applyGroupHandles();
+  }
+
+  // ─── Group resize ────────────────────────────────────────────────────────────
+  private applyGroupHandles(): void {
+    const layer  = document.getElementById('group-handles-layer');
+    const gridEl = document.getElementById('garden-grid');
+    if (!layer || !gridEl) return;
+
+    layer.innerHTML = '';
+    if (!this.groups.length) return;
+
+    const cellSize  = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--cell-size'));
+    const layerRect = layer.parentElement!.getBoundingClientRect();
+    const gridRect  = gridEl.getBoundingClientRect();
+    const offX      = gridRect.left - layerRect.left;
+    const offY      = gridRect.top  - layerRect.top;
+
+    const colorMap = new Map<string, string>();
+    this.groups.forEach((g, i) => colorMap.set(g.id, GardenGrid.GROUP_COLORS[i % GardenGrid.GROUP_COLORS.length]));
+
+    // Compute bounding box for every group in one grid pass
+    const bounds = new Map<string, { minR: number; maxR: number; minC: number; maxC: number }>();
+    for (let r = 0; r < this.rows; r++) {
+      for (let c = 0; c < this.cols; c++) {
+        const gid = (gridEl.children[r * this.cols + c] as HTMLElement).dataset['groupId'];
+        if (!gid || !colorMap.has(gid)) continue;
+        const b = bounds.get(gid) ?? { minR: Infinity, maxR: -Infinity, minC: Infinity, maxC: -Infinity };
+        if (r < b.minR) b.minR = r;
+        if (r > b.maxR) b.maxR = r;
+        if (c < b.minC) b.minC = c;
+        if (c > b.maxC) b.maxC = c;
+        bounds.set(gid, b);
+      }
+    }
+
+    const H = 8, HALF = H / 2;
+
+    for (const group of this.groups) {
+      const b = bounds.get(group.id);
+      if (!b || b.minR === Infinity) continue;
+      const color = colorMap.get(group.id)!;
+
+      const midX = offX + (b.minC + b.maxC + 1) / 2 * cellSize;
+      const midY = offY + (b.minR + b.maxR + 1) / 2 * cellSize;
+
+      type HandleDef = { px: number; py: number; fixedR: number; fixedC: number; activeR: number; activeC: number; lockRow: boolean; lockCol: boolean; cursor: string };
+      const handles: HandleDef[] = [
+        // corners (both dimensions free)
+        { px: offX + b.minC       * cellSize, py: offY + b.minR       * cellSize, fixedR: b.maxR, fixedC: b.maxC, activeR: b.minR, activeC: b.minC, lockRow: false, lockCol: false, cursor: 'nwse-resize' },
+        { px: offX + (b.maxC + 1) * cellSize, py: offY + b.minR       * cellSize, fixedR: b.maxR, fixedC: b.minC, activeR: b.minR, activeC: b.maxC, lockRow: false, lockCol: false, cursor: 'nesw-resize' },
+        { px: offX + b.minC       * cellSize, py: offY + (b.maxR + 1) * cellSize, fixedR: b.minR, fixedC: b.maxC, activeR: b.maxR, activeC: b.minC, lockRow: false, lockCol: false, cursor: 'nesw-resize' },
+        { px: offX + (b.maxC + 1) * cellSize, py: offY + (b.maxR + 1) * cellSize, fixedR: b.minR, fixedC: b.minC, activeR: b.maxR, activeC: b.maxC, lockRow: false, lockCol: false, cursor: 'nwse-resize' },
+        // edges (one dimension locked)
+        { px: midX,                            py: offY + b.minR       * cellSize, fixedR: b.maxR, fixedC: b.minC, activeR: b.minR, activeC: b.maxC, lockRow: false, lockCol: true,  cursor: 'ns-resize' },
+        { px: midX,                            py: offY + (b.maxR + 1) * cellSize, fixedR: b.minR, fixedC: b.minC, activeR: b.maxR, activeC: b.maxC, lockRow: false, lockCol: true,  cursor: 'ns-resize' },
+        { px: offX + b.minC       * cellSize,  py: midY,                           fixedR: b.minR, fixedC: b.maxC, activeR: b.maxR, activeC: b.minC, lockRow: true,  lockCol: false, cursor: 'ew-resize' },
+        { px: offX + (b.maxC + 1) * cellSize,  py: midY,                           fixedR: b.minR, fixedC: b.minC, activeR: b.maxR, activeC: b.maxC, lockRow: true,  lockCol: false, cursor: 'ew-resize' },
+      ];
+
+      for (const h of handles) {
+        const handle = document.createElement('div');
+        handle.className        = 'group-resize-handle';
+        handle.style.left       = `${h.px - HALF}px`;
+        handle.style.top        = `${h.py - HALF}px`;
+        handle.style.background = color;
+        handle.style.cursor     = h.cursor;
+        if (h.lockRow || h.lockCol) handle.style.borderRadius = '50%';
+        handle.addEventListener('mousedown', (e: MouseEvent) => {
+          e.preventDefault();
+          e.stopPropagation();
+          this.startResize(group.id, h.fixedR, h.fixedC, h.activeR, h.activeC, h.lockRow, h.lockCol);
+        });
+        layer.appendChild(handle);
+      }
+    }
+  }
+
+  private startResize(groupId: string, fixedR: number, fixedC: number, activeR: number, activeC: number, lockRow = false, lockCol = false): void {
+    this.isResizing     = true;
+    this.resizeGroupId  = groupId;
+    this.resizeFixedR   = fixedR;
+    this.resizeFixedC   = fixedC;
+    this.resizeCurrentR = activeR;
+    this.resizeCurrentC = activeC;
+    this.resizeLockRow  = lockRow;
+    this.resizeLockCol  = lockCol;
+    this.resizeSnapshot.clear();
+
+    const grid = document.getElementById('garden-grid')!;
+    for (let r = 0; r < this.rows; r++) {
+      for (let c = 0; c < this.cols; c++) {
+        const cell = grid.children[r * this.cols + c] as HTMLElement;
+        if (cell.dataset['groupId'] === groupId) {
+          this.resizeSnapshot.set(`${r},${c}`, {
+            zone:    cell.dataset['zone'],
+            color:   cell.dataset['customColor'],
+            groupId: cell.dataset['groupId'],
+          });
+        }
+      }
+    }
+  }
+
+  private updateResizeBox(newR: number, newC: number): void {
+    const grid   = document.getElementById('garden-grid')!;
+    const cols   = this.cols;
+    const fixedR = this.resizeFixedR;
+    const fixedC = this.resizeFixedC;
+
+    const oldMinR = Math.min(fixedR, this.resizeCurrentR);
+    const oldMaxR = Math.max(fixedR, this.resizeCurrentR);
+    const oldMinC = Math.min(fixedC, this.resizeCurrentC);
+    const oldMaxC = Math.max(fixedC, this.resizeCurrentC);
+
+    const newMinR = Math.min(fixedR, newR);
+    const newMaxR = Math.max(fixedR, newR);
+    const newMinC = Math.min(fixedC, newC);
+    const newMaxC = Math.max(fixedC, newC);
+
+    const inNew = (r: number, c: number) =>
+      r >= newMinR && r <= newMaxR && c >= newMinC && c <= newMaxC;
+
+    for (let r = oldMinR; r <= oldMaxR; r++) {
+      for (let c = oldMinC; c <= oldMaxC; c++) {
+        if (!inNew(r, c)) this.restoreResizeCell(grid, r, c, cols);
+      }
+    }
+
+    const plantColor = PLANT_MAP[this.groups.find(g => g.id === this.resizeGroupId)!.plant]?.color;
+
+    for (let r = newMinR; r <= newMaxR; r++) {
+      for (let c = newMinC; c <= newMaxC; c++) {
+        const key  = `${r},${c}`;
+        const cell = grid.children[r * cols + c] as HTMLElement;
+        if (!cell) continue;
+        if (!this.resizeSnapshot.has(key)) {
+          this.resizeSnapshot.set(key, { zone: cell.dataset['zone'], color: cell.dataset['customColor'], groupId: cell.dataset['groupId'] });
+        }
+        if (plantColor) {
+          cell.style.background       = plantColor;
+          cell.dataset['zone']        = 'custom';
+          cell.dataset['customColor'] = plantColor;
+        }
+        cell.dataset['groupId'] = this.resizeGroupId;
+      }
+    }
+
+    this.resizeCurrentR = newR;
+    this.resizeCurrentC = newC;
+    this.applyGroupBorders();
+    this.applyGroupHandles();
+  }
+
+  private restoreResizeCell(grid: HTMLElement, r: number, c: number, cols: number): void {
+    const cell = grid.children[r * cols + c] as HTMLElement;
+    if (!cell) return;
+    const snap = this.resizeSnapshot.get(`${r},${c}`);
+
+    // Cell was originally part of this group — shrinking removes it entirely
+    if (!snap || snap.groupId === this.resizeGroupId) {
+      delete cell.dataset['zone'];
+      delete cell.dataset['customColor'];
+      delete cell.dataset['groupId'];
+      cell.style.background = '';
+      cell.style.boxShadow  = '';
+      return;
+    }
+
+    // Cell was outside the group — restore its pre-resize state
+    if (snap.color) {
+      cell.style.background       = snap.color;
+      cell.dataset['zone']        = 'custom';
+      cell.dataset['customColor'] = snap.color;
+    } else if (snap.zone) {
+      cell.dataset['zone']  = snap.zone;
+      cell.style.background = '';
+      delete cell.dataset['customColor'];
+    } else {
+      delete cell.dataset['zone'];
+      delete cell.dataset['customColor'];
+      cell.style.background = '';
+    }
+    if (snap.groupId) cell.dataset['groupId'] = snap.groupId;
+    else              delete cell.dataset['groupId'];
   }
 }
