@@ -92,6 +92,11 @@ export class GardenGrid {
   private moveSnapshot      = new Map<string, { zone: string | undefined; color: string | undefined; groupId: string | undefined }>();
   private moveHasConflict   = false;
 
+  // Undo / redo
+  private readonly MAX_HISTORY = 50;
+  private undoStack: GardenGridValue[] = [];
+  private redoStack: GardenGridValue[] = [];
+
   private readonly resizeMoveHandler = (e: MouseEvent) => {
     if (!this.isResizing) return;
     const grid     = document.getElementById('garden-grid')!;
@@ -114,7 +119,17 @@ export class GardenGrid {
   };
 
   private readonly contextMenuKeyHandler = (e: KeyboardEvent) => {
-    if (e.key === 'Escape') this.closeContextMenu();
+    if (e.key === 'Escape') { this.closeContextMenu(); return; }
+    const ctrl = e.ctrlKey || e.metaKey;
+    if (ctrl && e.key === 'z' && !e.shiftKey) {
+      e.preventDefault();
+      this.closeContextMenu();
+      this.undo();
+    } else if (ctrl && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) {
+      e.preventDefault();
+      this.closeContextMenu();
+      this.redo();
+    }
   };
 
   private readonly moveDragHandler = (e: MouseEvent) => {
@@ -277,6 +292,7 @@ export class GardenGrid {
         cell.addEventListener('mousedown', (e: MouseEvent) => {
           e.preventDefault();
           if (e.button === 2) return;
+          this.captureSnapshot();
           if (e.shiftKey) {
             this.isPainting = true;
             this.eraseCell(cell);
@@ -633,6 +649,7 @@ export class GardenGrid {
         handle.addEventListener('mousedown', (e: MouseEvent) => {
           e.preventDefault();
           e.stopPropagation();
+          this.captureSnapshot();
           this.startResize(group.id, h.fixedR, h.fixedC, h.activeR, h.activeC, h.lockRow, h.lockCol);
         });
         layer.appendChild(handle);
@@ -857,6 +874,35 @@ export class GardenGrid {
     menu.style.left = `${x}px`;
     menu.style.top  = `${y}px`;
 
+    // ── Undo / Redo ───────────────────────────────────────────────────────────
+    const makeShortcutItem = (label: string, shortcut: string, disabled: boolean, action: () => void) => {
+      const item = document.createElement('div');
+      item.className = `context-menu-item${disabled ? ' disabled' : ''}`;
+      const labelSpan = document.createElement('span');
+      labelSpan.textContent = label;
+      const kbdSpan = document.createElement('span');
+      kbdSpan.className   = 'context-menu-shortcut';
+      kbdSpan.textContent = shortcut;
+      item.appendChild(labelSpan);
+      item.appendChild(kbdSpan);
+      if (!disabled) {
+        item.addEventListener('mousedown', (e: MouseEvent) => {
+          e.preventDefault();
+          e.stopPropagation();
+          this.closeContextMenu();
+          action();
+        });
+      }
+      return item;
+    };
+
+    menu.appendChild(makeShortcutItem('Undo', 'Ctrl+Z', !this.undoStack.length, () => this.undo()));
+    menu.appendChild(makeShortcutItem('Redo', 'Ctrl+Y', !this.redoStack.length, () => this.redo()));
+
+    const sep0 = document.createElement('div');
+    sep0.className = 'context-menu-separator';
+    menu.appendChild(sep0);
+
     // ── Plan-level items ──────────────────────────────────────────────────────
     const notesItem = document.createElement('div');
     notesItem.className   = 'context-menu-item';
@@ -921,6 +967,7 @@ export class GardenGrid {
       .setWidth('400px')
       .addAction('Cancel')
       .addAction('Save', () => {
+        this.captureSnapshot();
         this.planNotes = pending;
         this.notifyChange();
       })
@@ -945,6 +992,7 @@ export class GardenGrid {
       .setWidth('360px')
       .addAction('Cancel')
       .addAction('Save', () => {
+        this.captureSnapshot();
         const plantChanged = pending.plant && pending.plant !== group.plant;
         group.notes   = pending.notes;
         group.subtype = pending.subtype;
@@ -992,6 +1040,7 @@ export class GardenGrid {
   }
 
   private deleteGroup(groupId: string): void {
+    this.captureSnapshot();
     const grid = document.getElementById('garden-grid')!;
     for (let r = 0; r < this.rows; r++) {
       for (let c = 0; c < this.cols; c++) {
@@ -1005,6 +1054,48 @@ export class GardenGrid {
       }
     }
     this.notifyChange();
+  }
+
+  // ─── Undo / Redo ─────────────────────────────────────────────────────────────
+  private snapshotCurrentState(): GardenGridValue {
+    return {
+      cols:   this.cols,
+      rows:   this.rows,
+      cells:  this.cells.map(c => ({ ...c })),
+      groups: this.groups.map(g => ({ ...g })),
+      notes:  this.planNotes,
+    };
+  }
+
+  private captureSnapshot(): void {
+    this.undoStack.push(this.snapshotCurrentState());
+    if (this.undoStack.length > this.MAX_HISTORY) this.undoStack.shift();
+    this.redoStack = [];
+  }
+
+  private applySnapshot(snapshot: GardenGridValue): void {
+    this.cols      = snapshot.cols;
+    this.rows      = snapshot.rows;
+    this.cells     = snapshot.cells;
+    this.groups    = snapshot.groups;
+    this.planNotes = snapshot.notes;
+    this.buildGrid();
+    this.applyStoredCells();
+    this.gardenGroup.setValue(snapshot, { emitEvent: false });
+    this.gardenGroup.markAsTouched();
+  }
+
+  private undo(): void {
+    if (!this.undoStack.length) return;
+    this.redoStack.push(this.snapshotCurrentState());
+    this.applySnapshot(this.undoStack.pop()!);
+  }
+
+  private redo(): void {
+    if (!this.redoStack.length) return;
+    this.undoStack.push(this.snapshotCurrentState());
+    if (this.undoStack.length > this.MAX_HISTORY) this.undoStack.shift();
+    this.applySnapshot(this.redoStack.pop()!);
   }
 
   private restoreMoveCell(grid: HTMLElement, r: number, c: number, cols: number): void {
