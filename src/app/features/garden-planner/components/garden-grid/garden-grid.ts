@@ -47,7 +47,8 @@ export class GardenGrid {
   private cells:  GardenCellData[] = [];
   private groups: PlantGroup[]     = [];
 
-  private isPainting = false;
+  private isPainting      = false;
+  private hoveredGroupId: string | null = null;
   private gridMouseMoveListener: ((e: MouseEvent) => void) | null = null;
 
   // Box drawing state (ctrl+drag)
@@ -225,6 +226,13 @@ export class GardenGrid {
         cell.dataset['col'] = String(c);
 
         cell.addEventListener('mouseenter', (e: MouseEvent) => {
+          if (!this.isResizing && !this.isMoving) {
+            const gid = cell.dataset['groupId'] ?? null;
+            if (gid !== this.hoveredGroupId) {
+              this.hoveredGroupId = gid;
+              this.applyGroupHandles();
+            }
+          }
           if (!this.isPainting) return;
           if (this.isBoxDrawing) return;
           if (e.shiftKey) {
@@ -284,6 +292,12 @@ export class GardenGrid {
       this.boxEndCol = c;
     };
     grid.addEventListener('mousemove', this.gridMouseMoveListener);
+    grid.addEventListener('mouseleave', () => {
+      if (!this.isResizing && !this.isMoving && this.hoveredGroupId !== null) {
+        this.hoveredGroupId = null;
+        this.applyGroupHandles();
+      }
+    });
 
     this.paintedCount.set(0);
     this.paintedCountChange.emit(0);
@@ -520,7 +534,14 @@ export class GardenGrid {
     if (!layer || !gridEl) return;
 
     layer.innerHTML = '';
-    if (!this.groups.length) return;
+
+    const targetId = this.isResizing ? this.resizeGroupId
+                   : this.isMoving   ? this.moveGroupId
+                   : this.hoveredGroupId;
+    if (!targetId) return;
+
+    const group = this.groups.find(g => g.id === targetId);
+    if (!group) return;
 
     const cellSize  = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--cell-size'));
     const layerRect = layer.parentElement!.getBoundingClientRect();
@@ -528,15 +549,14 @@ export class GardenGrid {
     const offX      = gridRect.left - layerRect.left;
     const offY      = gridRect.top  - layerRect.top;
 
-    const colorMap = new Map<string, string>();
-    this.groups.forEach((g, i) => colorMap.set(g.id, GardenGrid.GROUP_COLORS[i % GardenGrid.GROUP_COLORS.length]));
+    const groupIndex = this.groups.indexOf(group);
 
-    // Compute bounding box for every group in one grid pass
+    // Compute bounding box for target group only
     const bounds = new Map<string, { minR: number; maxR: number; minC: number; maxC: number }>();
     for (let r = 0; r < this.rows; r++) {
       for (let c = 0; c < this.cols; c++) {
         const gid = (gridEl.children[r * this.cols + c] as HTMLElement).dataset['groupId'];
-        if (!gid || !colorMap.has(gid)) continue;
+        if (gid !== targetId) continue;
         const b = bounds.get(gid) ?? { minR: Infinity, maxR: -Infinity, minC: Infinity, maxC: -Infinity };
         if (r < b.minR) b.minR = r;
         if (r > b.maxR) b.maxR = r;
@@ -548,10 +568,10 @@ export class GardenGrid {
 
     const H = 8, HALF = H / 2;
 
-    for (const group of this.groups) {
+    {
       const b = bounds.get(group.id);
-      if (!b || b.minR === Infinity) continue;
-      const color = colorMap.get(group.id)!;
+      if (!b || b.minR === Infinity) return;
+      const color = GardenGrid.GROUP_COLORS[groupIndex % GardenGrid.GROUP_COLORS.length];
 
       const midX = offX + (b.minC + b.maxC + 1) / 2 * cellSize;
       const midY = offY + (b.minR + b.maxR + 1) / 2 * cellSize;
