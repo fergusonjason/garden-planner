@@ -87,6 +87,7 @@ export class GardenGrid {
   private moveBoundsMaxC    = 0;
   private moveOriginalCells: Array<{ r: number; c: number }> = [];
   private moveSnapshot      = new Map<string, { zone: string | undefined; color: string | undefined; groupId: string | undefined }>();
+  private moveHasConflict   = false;
 
   private readonly resizeMoveHandler = (e: MouseEvent) => {
     if (!this.isResizing) return;
@@ -140,8 +141,10 @@ export class GardenGrid {
 
   private mouseUpListener = () => {
     if (this.isMoving) {
+      if (this.moveHasConflict) this.updateMovePosition(0, 0);
       this.notifyChange();
-      this.isMoving         = false;
+      this.isMoving          = false;
+      this.moveHasConflict   = false;
       this.moveOriginalCells = [];
       this.moveSnapshot.clear();
       return;
@@ -791,6 +794,17 @@ export class GardenGrid {
       this.moveOriginalCells.map(({ r, c }) => `${r + newDeltaR},${c + newDeltaC}`)
     );
 
+    // Detect conflict before modifying the DOM: check cells the group is newly entering
+    let hasConflict = false;
+    for (const { r: origR, c: origC } of this.moveOriginalCells) {
+      const key = `${origR + newDeltaR},${origC + newDeltaC}`;
+      if (oldPositions.has(key)) continue;
+      const cell = grid.children[(origR + newDeltaR) * cols + (origC + newDeltaC)] as HTMLElement;
+      const gid  = cell?.dataset['groupId'];
+      if (gid && gid !== this.moveGroupId) { hasConflict = true; break; }
+    }
+    this.moveHasConflict = hasConflict;
+
     for (const key of oldPositions) {
       if (!newPositions.has(key)) {
         const [r, c] = key.split(',').map(Number);
@@ -805,12 +819,12 @@ export class GardenGrid {
       const c   = origC + newDeltaC;
       const key = `${r},${c}`;
       if (!oldPositions.has(key) && !this.moveSnapshot.has(key)) {
-        const cell = grid.children[r * cols + c] as HTMLElement;
-        if (cell) {
+        const snapCell = grid.children[r * cols + c] as HTMLElement;
+        if (snapCell) {
           this.moveSnapshot.set(key, {
-            zone:    cell.dataset['zone'],
-            color:   cell.dataset['customColor'],
-            groupId: cell.dataset['groupId'],
+            zone:    snapCell.dataset['zone'],
+            color:   snapCell.dataset['customColor'],
+            groupId: snapCell.dataset['groupId'],
           });
         }
       }
@@ -822,6 +836,7 @@ export class GardenGrid {
         cell.dataset['customColor'] = plantColor;
       }
       cell.dataset['groupId'] = this.moveGroupId;
+      cell.style.filter       = hasConflict ? 'brightness(0.45)' : '';
     }
 
     this.moveDeltaR = newDeltaR;
@@ -949,6 +964,8 @@ export class GardenGrid {
     const cell = grid.children[r * cols + c] as HTMLElement;
     if (!cell) return;
     const snap = this.moveSnapshot.get(`${r},${c}`);
+
+    cell.style.filter = '';
 
     if (!snap || snap.groupId === this.moveGroupId) {
       delete cell.dataset['zone'];
