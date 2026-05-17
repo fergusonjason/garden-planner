@@ -53,5 +53,24 @@ export class ExportService {
     });
   }
 
-  exportPDF(): void { window.print(); }
+  exportPDF(): void { window.print();
+
+  }
+
+  async savePlan(gardenPlan: any, fileName: string): Promise<void> {
+
+    const formBlob = new Blob([gardenPlan], { type: 'application/json' });
+    const compressedFormStream = formBlob.stream().pipeThrough(new CompressionStream('gzip'));
+    const compressedFormBlob = await new Response(compressedFormStream).blob();
+
+
+    const url = URL.createObjectURL(compressedFormBlob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = fileName;
+    link.click();
+
+    // Clean up
+    URL.revokeObjectURL(url);
+  }
 }

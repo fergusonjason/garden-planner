@@ -45,9 +45,9 @@
 <!-- Actions -->
 <div class="actions">
   <button class="btn-action" (click)="clearGrid()">Clear All</button>
-  <button class="btn-action" (click)="savePlan()">💾 Export</button>
+  <button class="btn-action" (click)="savePlan($event)">💾 Export</button>
   <button class="btn-action" (click)="loadInput.click()">📂 Import</button>
-  <input #loadInput type="file" accept=".garden" style="display:none" (change)="loadPlan($event)">
+  <input #loadInput type="file" accept=".garden,.garden.gz" style="display:none" (change)="loadPlan($event)">
   <!-- <button class="btn-action" (click)="exportPNG()">Export PNG</button> -->
   <!-- <button class="btn-action" (click)="exportPDF()">Export PDF</button> -->
 </div>

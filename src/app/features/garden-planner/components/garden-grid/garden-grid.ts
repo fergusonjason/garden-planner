@@ -9,12 +9,21 @@ export interface GardenCellData {
   x: number;
   y: number;
   plant: string;
+  groupId?: string;
+}
+
+export interface PlantGroup {
+  id: string;
+  plant: string;
+  subtype?: string;
+  notes?: string;
 }
 
 export interface GardenGridValue {
   cols: number;
   rows: number;
   cells: GardenCellData[];
+  groups: PlantGroup[];
 }
 
 
@@ -33,15 +42,21 @@ export class GardenGrid {
 
   readonly paintedCount = signal<number>(0);
 
-  private cols = 40;
-  private rows = 40;
-  private cells: GardenCellData[] = [];
+  private cols   = 40;
+  private rows   = 40;
+  private cells:  GardenCellData[] = [];
+  private groups: PlantGroup[]     = [];
 
   private isPainting = false;
-  private straightLockRow: number | null = null;
-  private straightLockCol: number | null = null;
-  private straightAxis: 'row' | 'col' | null = null;
   private gridMouseMoveListener: ((e: MouseEvent) => void) | null = null;
+
+  // Box drawing state (ctrl+drag)
+  private isBoxDrawing = false;
+  private boxStartRow  = 0;
+  private boxStartCol  = 0;
+  private boxEndRow    = 0;
+  private boxEndCol    = 0;
+  private boxSnapshot  = new Map<string, { zone: string | undefined; color: string | undefined }>();
 
   private get gardenGroup(): FormGroup {
     return this.controlContainer.control as FormGroup;
@@ -49,12 +64,12 @@ export class GardenGrid {
 
   private mouseUpListener = () => {
     if (this.isPainting) {
+      if (this.isBoxDrawing) this.commitBox();
       this.notifyChange();
     }
-    this.isPainting      = false;
-    this.straightLockRow = null;
-    this.straightLockCol = null;
-    this.straightAxis    = null;
+    this.isPainting   = false;
+    this.isBoxDrawing = false;
+    this.boxSnapshot.clear();
   };
 
   // ─── Lifecycle ───────────────────────────────────────────────────────────────
@@ -65,18 +80,20 @@ export class GardenGrid {
     this.gardenGroup.valueChanges
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe((value: GardenGridValue) => {
-        this.cols  = value.cols;
-        this.rows  = value.rows;
-        this.cells = value.cells;
+        this.cols   = value.cols;
+        this.rows   = value.rows;
+        this.cells  = value.cells;
+        this.groups = value.groups ?? [];
         this.buildGrid();
         this.applyStoredCells();
       });
 
     // Apply initial value
     const initial = this.gardenGroup.getRawValue() as GardenGridValue;
-    this.cols  = initial.cols;
-    this.rows  = initial.rows;
-    this.cells = initial.cells;
+    this.cols   = initial.cols;
+    this.rows   = initial.rows;
+    this.cells  = initial.cells;
+    this.groups = initial.groups ?? [];
     this.buildGrid();
     this.applyStoredCells();
   }
@@ -131,19 +148,10 @@ export class GardenGrid {
 
         cell.addEventListener('mouseenter', (e: MouseEvent) => {
           if (!this.isPainting) return;
+          if (this.isBoxDrawing) return;
           if (e.shiftKey) {
             this.eraseCell(cell);
             return;
-          }
-          if (this.straightLockRow !== null) {
-            if (this.straightAxis === null) {
-              const dr = Math.abs(r - this.straightLockRow!);
-              const dc = Math.abs(c - this.straightLockCol!);
-              if (dr === 0 && dc === 0) return;
-              this.straightAxis = dc >= dr ? 'row' : 'col';
-            }
-            if (this.straightAxis === 'row' && r !== this.straightLockRow) return;
-            if (this.straightAxis === 'col' && c !== this.straightLockCol) return;
           }
           this.paintCell(cell);
         });
@@ -157,15 +165,18 @@ export class GardenGrid {
             return;
           }
           if (e.ctrlKey || e.metaKey) {
-            this.straightLockRow = r;
-            this.straightLockCol = c;
-            this.straightAxis    = null;
+            this.isBoxDrawing = true;
+            this.boxStartRow  = r;
+            this.boxStartCol  = c;
+            this.boxEndRow    = r;
+            this.boxEndCol    = c;
+            this.boxSnapshot.clear();
+            this.boxSnapshot.set(`${r},${c}`, { zone: cell.dataset['zone'], color: cell.dataset['customColor'] });
+            this.paintCellDirect(cell);
           } else {
-            this.straightLockRow = null;
-            this.straightLockCol = null;
-            this.straightAxis    = null;
+            this.isBoxDrawing = false;
+            this.paintCell(cell);
           }
-          this.paintCell(cell);
         });
 
         grid.appendChild(cell);
@@ -173,7 +184,7 @@ export class GardenGrid {
     }
 
     this.gridMouseMoveListener = (e: MouseEvent) => {
-      if (!this.isPainting || this.straightLockRow === null) return;
+      if (!this.isPainting || !this.isBoxDrawing) return;
 
       const rect     = grid.getBoundingClientRect();
       const cellSize = parseFloat(
@@ -184,19 +195,9 @@ export class GardenGrid {
       c = Math.max(0, Math.min(cols - 1, c));
       r = Math.max(0, Math.min(rows - 1, r));
 
-      if (this.straightAxis === null) {
-        const dr = Math.abs(r - this.straightLockRow!);
-        const dc = Math.abs(c - this.straightLockCol!);
-        if (dr === 0 && dc === 0) return;
-        this.straightAxis = dc >= dr ? 'row' : 'col';
-      }
-
-      if (this.straightAxis === 'row') r = this.straightLockRow!;
-      if (this.straightAxis === 'col') c = this.straightLockCol!;
-
-      const cells = grid.querySelectorAll('.cell');
-      const cell  = cells[r * cols + c] as HTMLElement;
-      if (cell) this.paintCell(cell);
+      this.updateBox(grid, cols, r, c);
+      this.boxEndRow = r;
+      this.boxEndCol = c;
     };
     grid.addEventListener('mousemove', this.gridMouseMoveListener);
 
@@ -207,7 +208,7 @@ export class GardenGrid {
   private applyStoredCells(): void {
     const cellEls = document.querySelectorAll('.cell');
     let count = 0;
-    for (const { x, y, plant } of this.cells) {
+    for (const { x, y, plant, groupId } of this.cells) {
       if (x >= this.cols || y >= this.rows) continue;
       const cell  = cellEls[y * this.cols + x] as HTMLElement;
       if (!cell) continue;
@@ -219,6 +220,7 @@ export class GardenGrid {
       } else {
         cell.dataset['zone'] = plant;
       }
+      if (groupId) cell.dataset['groupId'] = groupId;
       count++;
     }
     this.paintedCount.set(count);
@@ -249,27 +251,130 @@ export class GardenGrid {
     }
   }
 
+  private paintCellDirect(cell: HTMLElement): void {
+    const selected = this.selectedPlant();
+    if (selected.currentZone === 'erase') {
+      delete cell.dataset['zone'];
+      delete cell.dataset['customColor'];
+      cell.style.background = '';
+      return;
+    }
+    const color = selected.plant.color;
+    cell.style.background       = color;
+    cell.dataset['zone']        = 'custom';
+    cell.dataset['customColor'] = color;
+  }
+
+  private restoreBoxCell(cell: HTMLElement, r: number, c: number): void {
+    const key  = `${r},${c}`;
+    const snap = this.boxSnapshot.get(key);
+    if (!snap) return;
+    if (snap.color) {
+      cell.style.background       = snap.color;
+      cell.dataset['zone']        = 'custom';
+      cell.dataset['customColor'] = snap.color;
+    } else if (snap.zone) {
+      cell.dataset['zone']  = snap.zone;
+      cell.style.background = '';
+      delete cell.dataset['customColor'];
+    } else {
+      delete cell.dataset['zone'];
+      delete cell.dataset['customColor'];
+      cell.style.background = '';
+    }
+    this.boxSnapshot.delete(key);
+  }
+
+  private updateBox(grid: HTMLElement, cols: number, newEndR: number, newEndC: number): void {
+    const startR = this.boxStartRow;
+    const startC = this.boxStartCol;
+
+    const oldMinR = Math.min(startR, this.boxEndRow);
+    const oldMaxR = Math.max(startR, this.boxEndRow);
+    const oldMinC = Math.min(startC, this.boxEndCol);
+    const oldMaxC = Math.max(startC, this.boxEndCol);
+
+    const newMinR = Math.min(startR, newEndR);
+    const newMaxR = Math.max(startR, newEndR);
+    const newMinC = Math.min(startC, newEndC);
+    const newMaxC = Math.max(startC, newEndC);
+
+    const inNew = (r: number, c: number) =>
+      r >= newMinR && r <= newMaxR && c >= newMinC && c <= newMaxC;
+
+    for (let r = oldMinR; r <= oldMaxR; r++) {
+      for (let c = oldMinC; c <= oldMaxC; c++) {
+        if (!inNew(r, c)) {
+          this.restoreBoxCell(grid.children[r * cols + c] as HTMLElement, r, c);
+        }
+      }
+    }
+
+    for (let r = newMinR; r <= newMaxR; r++) {
+      for (let c = newMinC; c <= newMaxC; c++) {
+        const key  = `${r},${c}`;
+        const cell = grid.children[r * cols + c] as HTMLElement;
+        if (!cell) continue;
+        if (!this.boxSnapshot.has(key)) {
+          this.boxSnapshot.set(key, { zone: cell.dataset['zone'], color: cell.dataset['customColor'] });
+        }
+        this.paintCellDirect(cell);
+      }
+    }
+  }
+
+  private commitBox(): void {
+    if (this.selectedPlant().currentZone === 'erase') return;
+
+    const grid   = document.getElementById('garden-grid')!;
+    const cols   = this.cols;
+    const groupId = crypto.randomUUID();
+    const minR = Math.min(this.boxStartRow, this.boxEndRow);
+    const maxR = Math.max(this.boxStartRow, this.boxEndRow);
+    const minC = Math.min(this.boxStartCol, this.boxEndCol);
+    const maxC = Math.max(this.boxStartCol, this.boxEndCol);
+
+    this.groups.push({ id: groupId, plant: this.selectedPlant().plant.key });
+
+    for (let r = minR; r <= maxR; r++) {
+      for (let c = minC; c <= maxC; c++) {
+        const cell = grid.children[r * cols + c] as HTMLElement;
+        if (cell) cell.dataset['groupId'] = groupId;
+      }
+    }
+  }
+
   // Called on mouseup — syncs DOM → gridControl without re-triggering valueChanges
   private notifyChange(): void {
     const cellEls = document.querySelectorAll('.cell');
     const cells: GardenCellData[] = [];
+    const activeGroupIds = new Set<string>();
+
     cellEls.forEach((c: Element) => {
-      const cell   = c as HTMLElement;
-      const custom = cell.dataset['customColor'];
-      const zone   = cell.dataset['zone'];
+      const cell    = c as HTMLElement;
+      const custom  = cell.dataset['customColor'];
+      const zone    = cell.dataset['zone'];
+      const groupId = cell.dataset['groupId'];
       if (!custom && !zone) return;
       const x = parseInt(cell.dataset['col']!);
       const y = parseInt(cell.dataset['row']!);
       const plant = custom
         ? (Object.keys(PLANT_MAP).find(k => PLANT_MAP[k].color === custom) ?? 'unknown')
         : zone!;
-      cells.push({ x, y, plant });
+      const cellData: GardenCellData = { x, y, plant };
+      if (groupId) {
+        cellData.groupId = groupId;
+        activeGroupIds.add(groupId);
+      }
+      cells.push(cellData);
     });
-    this.cells = cells;
+
+    this.groups = this.groups.filter(g => activeGroupIds.has(g.id));
+    this.cells  = cells;
     const count = cells.length;
     this.paintedCount.set(count);
     this.paintedCountChange.emit(count);
-    this.gardenGroup.setValue({ cols: this.cols, rows: this.rows, cells }, { emitEvent: false });
+    this.gardenGroup.setValue({ cols: this.cols, rows: this.rows, cells, groups: this.groups }, { emitEvent: false });
     this.gardenGroup.markAsTouched();
   }
 }

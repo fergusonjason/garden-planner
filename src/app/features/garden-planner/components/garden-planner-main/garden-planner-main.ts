@@ -8,11 +8,12 @@ import { PLANT_MAP } from 'src/app/shared/constants/plant-map-constants';
 import { SelectedPlant } from 'src/app/shared/models/selected-plant';
 import { DialogService } from 'src/app/shared/services/dialog-service';
 import { DimensionBar } from '../dimension-bar/dimension-bar';
-import { GardenCellData, GardenGrid } from '../garden-grid/garden-grid';
+import { GardenCellData, GardenGrid, PlantGroup } from '../garden-grid/garden-grid';
 import { GardenService } from '../../services/garden-service';
 import { PlantingSelector } from '../planting-selector/planting-selector';
 import { PlantingToolbar } from '../planting-toolbar/planting-toolbar';
 import { InstructionsComponent } from '../instructions-component/instructions.component';
+import { ExportService } from 'src/app/core/services/export-service';
 
 @Component({
   selector: 'garden-planner-main',
@@ -32,6 +33,7 @@ export class GardenPlannerMain {
   private dialogService  = inject(DialogService);
   private formBuilder    = inject(FormBuilder);
   private gardenService  = inject(GardenService);
+  private exportService = inject(ExportService);
   private destroyRef = inject(DestroyRef)
 
   applicationVersion = inject(APPLICATION_VERSION);
@@ -48,9 +50,10 @@ export class GardenPlannerMain {
       rows: [this.defaultRows, { nonNullable: true, validators: [Validators.required, Validators.min(5), Validators.max(200)] }],
     }),
     gardenGridData2: this.formBuilder.group({
-      cols:  this.formBuilder.control<number>(this.defaultCols, { nonNullable: true }),
-      rows:  this.formBuilder.control<number>(this.defaultRows, { nonNullable: true }),
-      cells: this.formBuilder.control<GardenCellData[]>([], { nonNullable: true }),
+      cols:   this.formBuilder.control<number>(this.defaultCols, { nonNullable: true }),
+      rows:   this.formBuilder.control<number>(this.defaultRows, { nonNullable: true }),
+      cells:  this.formBuilder.control<GardenCellData[]>([], { nonNullable: true }),
+      groups: this.formBuilder.control<PlantGroup[]>([], { nonNullable: true }),
     }),
   });
 
@@ -99,7 +102,7 @@ export class GardenPlannerMain {
   applyDimensions(e: { cols: number, rows: number }): void {
     this.cols.set(e.cols);
     this.rows.set(e.rows);
-    this.planForm.controls.gardenGridData2.setValue({ cols: e.cols, rows: e.rows, cells: [] });
+    this.planForm.controls.gardenGridData2.setValue({ cols: e.cols, rows: e.rows, cells: [], groups: [] });
   }
 
   doOpenInstructions(): void {
@@ -137,7 +140,7 @@ export class GardenPlannerMain {
       .addAction('Cancel')
       .addAction('Clear', () => {
         const v = this.planForm.controls.gardenGridData2.value;
-        this.planForm.controls.gardenGridData2.setValue({ cols: v.cols!, rows: v.rows!, cells: [] });
+        this.planForm.controls.gardenGridData2.setValue({ cols: v.cols!, rows: v.rows!, cells: [], groups: [] });
       })
       .open();
   }
@@ -155,26 +158,17 @@ export class GardenPlannerMain {
     if ((e.target as HTMLElement).classList.contains('modal-backdrop')) this.closeModal();
   }
 
-  // ─── .garden export / import ─────────────────────────────────────────────────
-  async savePlan(): Promise<void> {
-    const value    = this.planForm.controls.gardenGridData2.getRawValue();
-    const json     = this.gardenService.buildGardenJSON(value);
-    const encoded  = new TextEncoder().encode(json);
-    const cs       = new (window as any).CompressionStream('gzip');
-    const writer   = cs.writable.getWriter();
-    writer.write(encoded);
-    writer.close();
-    const compressed = new Uint8Array(await new Response(cs.readable).arrayBuffer());
-    const blob = new Blob([compressed], { type: 'application/octet-stream' });
-    const a    = document.createElement('a');
-    a.href     = URL.createObjectURL(blob);
-    a.download = `garden-plan-${value.cols}x${value.rows}.garden`;
-    a.click();
-    URL.revokeObjectURL(a.href);
-    this.setFeedback(`✓ Saved garden-plan-${value.cols}x${value.rows}.garden (${(compressed.byteLength / 1024).toFixed(1)} KB gzipped)`, 'feedback-ok');
+  async savePlan($event: MouseEvent): Promise<void>{
+
+    const form = this.planForm.getRawValue();
+    const formStr = JSON.stringify(form);
+    const now = new Date();
+    await this.exportService.savePlan(formStr, `garden-plan-${now.getTime()}.garden.gz`);
   }
 
+
   async loadPlan(event: Event): Promise<void> {
+
     const input = event.target as HTMLInputElement;
     const file  = input.files?.[0];
     if (!file) return;
