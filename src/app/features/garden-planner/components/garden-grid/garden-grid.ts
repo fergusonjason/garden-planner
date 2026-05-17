@@ -69,6 +69,20 @@ export class GardenGrid {
   private resizeLockCol  = false;  // edge handles: freeze col dimension
   private resizeSnapshot = new Map<string, { zone: string | undefined; color: string | undefined; groupId: string | undefined }>();
 
+  // Group move state
+  private isMoving          = false;
+  private moveGroupId       = '';
+  private moveAnchorR       = 0;
+  private moveAnchorC       = 0;
+  private moveDeltaR        = 0;
+  private moveDeltaC        = 0;
+  private moveBoundsMinR    = 0;
+  private moveBoundsMaxR    = 0;
+  private moveBoundsMinC    = 0;
+  private moveBoundsMaxC    = 0;
+  private moveOriginalCells: Array<{ r: number; c: number }> = [];
+  private moveSnapshot      = new Map<string, { zone: string | undefined; color: string | undefined; groupId: string | undefined }>();
+
   private readonly resizeMoveHandler = (e: MouseEvent) => {
     if (!this.isResizing) return;
     const grid     = document.getElementById('garden-grid')!;
@@ -84,11 +98,39 @@ export class GardenGrid {
     this.updateResizeBox(r, c);
   };
 
+  private readonly moveDragHandler = (e: MouseEvent) => {
+    if (!this.isMoving) return;
+    const grid     = document.getElementById('garden-grid')!;
+    const rect     = grid.getBoundingClientRect();
+    const cellSize = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--cell-size'));
+    let c = Math.floor((e.clientX - rect.left) / cellSize);
+    let r = Math.floor((e.clientY - rect.top)  / cellSize);
+    c = Math.max(0, Math.min(this.cols - 1, c));
+    r = Math.max(0, Math.min(this.rows - 1, r));
+
+    let deltaR = r - this.moveAnchorR;
+    let deltaC = c - this.moveAnchorC;
+    deltaR = Math.max(deltaR, -this.moveBoundsMinR);
+    deltaR = Math.min(deltaR, this.rows - 1 - this.moveBoundsMaxR);
+    deltaC = Math.max(deltaC, -this.moveBoundsMinC);
+    deltaC = Math.min(deltaC, this.cols - 1 - this.moveBoundsMaxC);
+
+    if (deltaR === this.moveDeltaR && deltaC === this.moveDeltaC) return;
+    this.updateMovePosition(deltaR, deltaC);
+  };
+
   private get gardenGroup(): FormGroup {
     return this.controlContainer.control as FormGroup;
   }
 
   private mouseUpListener = () => {
+    if (this.isMoving) {
+      this.notifyChange();
+      this.isMoving         = false;
+      this.moveOriginalCells = [];
+      this.moveSnapshot.clear();
+      return;
+    }
     if (this.isResizing) {
       this.notifyChange();
       this.isResizing = false;
@@ -108,6 +150,7 @@ export class GardenGrid {
   ngAfterViewInit(): void {
     document.addEventListener('mouseup',   this.mouseUpListener);
     document.addEventListener('mousemove', this.resizeMoveHandler);
+    document.addEventListener('mousemove', this.moveDragHandler);
 
     // React to external writes (applyDimensions, loadPlan, clearGrid)
     this.gardenGroup.valueChanges
@@ -134,6 +177,7 @@ export class GardenGrid {
   ngOnDestroy(): void {
     document.removeEventListener('mouseup',   this.mouseUpListener);
     document.removeEventListener('mousemove', this.resizeMoveHandler);
+    document.removeEventListener('mousemove', this.moveDragHandler);
   }
 
   // ─── Grid ───────────────────────────────────────────────────────────────────
@@ -193,21 +237,27 @@ export class GardenGrid {
         cell.addEventListener('mousedown', (e: MouseEvent) => {
           e.preventDefault();
           if (e.button === 2) return;
-          this.isPainting = true;
           if (e.shiftKey) {
+            this.isPainting = true;
             this.eraseCell(cell);
             return;
           }
           if (e.ctrlKey || e.metaKey) {
-            this.isBoxDrawing = true;
-            this.boxStartRow  = r;
-            this.boxStartCol  = c;
-            this.boxEndRow    = r;
-            this.boxEndCol    = c;
-            this.boxSnapshot.clear();
-            this.boxSnapshot.set(`${r},${c}`, { zone: cell.dataset['zone'], color: cell.dataset['customColor'], groupId: cell.dataset['groupId'] });
-            this.paintCellDirect(cell);
+            if (cell.dataset['groupId']) {
+              this.startMove(cell.dataset['groupId'], r, c);
+            } else {
+              this.isPainting   = true;
+              this.isBoxDrawing = true;
+              this.boxStartRow  = r;
+              this.boxStartCol  = c;
+              this.boxEndRow    = r;
+              this.boxEndCol    = c;
+              this.boxSnapshot.clear();
+              this.boxSnapshot.set(`${r},${c}`, { zone: cell.dataset['zone'], color: cell.dataset['customColor'], groupId: cell.dataset['groupId'] });
+              this.paintCellDirect(cell);
+            }
           } else {
+            this.isPainting   = true;
             this.isBoxDrawing = false;
             this.paintCell(cell);
           }
@@ -630,6 +680,124 @@ export class GardenGrid {
     }
 
     // Cell was outside the group — restore its pre-resize state
+    if (snap.color) {
+      cell.style.background       = snap.color;
+      cell.dataset['zone']        = 'custom';
+      cell.dataset['customColor'] = snap.color;
+    } else if (snap.zone) {
+      cell.dataset['zone']  = snap.zone;
+      cell.style.background = '';
+      delete cell.dataset['customColor'];
+    } else {
+      delete cell.dataset['zone'];
+      delete cell.dataset['customColor'];
+      cell.style.background = '';
+    }
+    if (snap.groupId) cell.dataset['groupId'] = snap.groupId;
+    else              delete cell.dataset['groupId'];
+  }
+
+  // ─── Group move ──────────────────────────────────────────────────────────────
+  private startMove(groupId: string, anchorR: number, anchorC: number): void {
+    this.isMoving         = true;
+    this.moveGroupId      = groupId;
+    this.moveAnchorR      = anchorR;
+    this.moveAnchorC      = anchorC;
+    this.moveDeltaR       = 0;
+    this.moveDeltaC       = 0;
+    this.moveOriginalCells = [];
+    this.moveSnapshot.clear();
+
+    let minR = Infinity, maxR = -Infinity, minC = Infinity, maxC = -Infinity;
+    const grid = document.getElementById('garden-grid')!;
+
+    for (let r = 0; r < this.rows; r++) {
+      for (let c = 0; c < this.cols; c++) {
+        const cell = grid.children[r * this.cols + c] as HTMLElement;
+        if (cell.dataset['groupId'] !== groupId) continue;
+        this.moveOriginalCells.push({ r, c });
+        this.moveSnapshot.set(`${r},${c}`, {
+          zone:    cell.dataset['zone'],
+          color:   cell.dataset['customColor'],
+          groupId: cell.dataset['groupId'],
+        });
+        if (r < minR) minR = r;
+        if (r > maxR) maxR = r;
+        if (c < minC) minC = c;
+        if (c > maxC) maxC = c;
+      }
+    }
+
+    this.moveBoundsMinR = minR;
+    this.moveBoundsMaxR = maxR;
+    this.moveBoundsMinC = minC;
+    this.moveBoundsMaxC = maxC;
+  }
+
+  private updateMovePosition(newDeltaR: number, newDeltaC: number): void {
+    const grid = document.getElementById('garden-grid')!;
+    const cols = this.cols;
+
+    const oldPositions = new Set(
+      this.moveOriginalCells.map(({ r, c }) => `${r + this.moveDeltaR},${c + this.moveDeltaC}`)
+    );
+    const newPositions = new Set(
+      this.moveOriginalCells.map(({ r, c }) => `${r + newDeltaR},${c + newDeltaC}`)
+    );
+
+    for (const key of oldPositions) {
+      if (!newPositions.has(key)) {
+        const [r, c] = key.split(',').map(Number);
+        this.restoreMoveCell(grid, r, c, cols);
+      }
+    }
+
+    const plantColor = PLANT_MAP[this.groups.find(g => g.id === this.moveGroupId)!.plant]?.color;
+
+    for (const { r: origR, c: origC } of this.moveOriginalCells) {
+      const r   = origR + newDeltaR;
+      const c   = origC + newDeltaC;
+      const key = `${r},${c}`;
+      if (!oldPositions.has(key) && !this.moveSnapshot.has(key)) {
+        const cell = grid.children[r * cols + c] as HTMLElement;
+        if (cell) {
+          this.moveSnapshot.set(key, {
+            zone:    cell.dataset['zone'],
+            color:   cell.dataset['customColor'],
+            groupId: cell.dataset['groupId'],
+          });
+        }
+      }
+      const cell = grid.children[r * cols + c] as HTMLElement;
+      if (!cell) continue;
+      if (plantColor) {
+        cell.style.background       = plantColor;
+        cell.dataset['zone']        = 'custom';
+        cell.dataset['customColor'] = plantColor;
+      }
+      cell.dataset['groupId'] = this.moveGroupId;
+    }
+
+    this.moveDeltaR = newDeltaR;
+    this.moveDeltaC = newDeltaC;
+    this.applyGroupBorders();
+    this.applyGroupHandles();
+  }
+
+  private restoreMoveCell(grid: HTMLElement, r: number, c: number, cols: number): void {
+    const cell = grid.children[r * cols + c] as HTMLElement;
+    if (!cell) return;
+    const snap = this.moveSnapshot.get(`${r},${c}`);
+
+    if (!snap || snap.groupId === this.moveGroupId) {
+      delete cell.dataset['zone'];
+      delete cell.dataset['customColor'];
+      delete cell.dataset['groupId'];
+      cell.style.background = '';
+      cell.style.boxShadow  = '';
+      return;
+    }
+
     if (snap.color) {
       cell.style.background       = snap.color;
       cell.dataset['zone']        = 'custom';
