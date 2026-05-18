@@ -2,6 +2,8 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.3.8](https://github.com/fergusonjason/garden-planner/compare/v0.3.7...v0.3.8) (2026-05-18)
+
 ### [0.3.7](https://github.com/fergusonjason/garden-planner/compare/v0.3.6...v0.3.7) (2026-05-17)
 
 ### [0.3.6](https://github.com/fergusonjason/garden-planner/compare/v0.3.5...v0.3.6) (2026-05-17)
