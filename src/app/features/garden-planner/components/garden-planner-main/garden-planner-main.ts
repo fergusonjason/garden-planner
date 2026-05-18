@@ -13,7 +13,10 @@ import { GardenService } from '../../services/garden-service';
 import { PlantingSelector } from '../planting-selector/planting-selector';
 import { PlantingToolbar } from '../planting-toolbar/planting-toolbar';
 import { InstructionsComponent } from '../instructions-component/instructions.component';
+import { QuickTipsComponent } from '../quick-tips/quick-tips.component';
 import { ExportService } from 'src/app/core/services/export-service';
+
+const TIPS_SESSION_KEY = 'garden-planner-hide-tips';
 
 @Component({
   selector: 'garden-planner-main',
@@ -87,12 +90,14 @@ export class GardenPlannerMain {
     document.addEventListener('keydown', this.keydownListener);
 
     this.planForm.controls.gardenGridData2.valueChanges
-      .pipe(
-        takeUntilDestroyed(this.destroyRef)
-      )
+      .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe(value => {
-        console.log(JSON.stringify(value, null,2));
+        console.log(JSON.stringify(value, null, 2));
       });
+
+    if (!sessionStorage.getItem(TIPS_SESSION_KEY)) {
+      setTimeout(() => this.showQuickTips());
+    }
   }
 
   ngOnDestroy(): void {
@@ -100,6 +105,20 @@ export class GardenPlannerMain {
   }
 
   // ─── Dimensions ─────────────────────────────────────────────────────────────
+  private showQuickTips(): void {
+    let suppress = false;
+    this.dialogService.createDialog()
+      .setTitle('Quick Tips')
+      .setDialogContent(QuickTipsComponent, {
+        onChange: (value: boolean) => { suppress = value; },
+      })
+      .setWidth('480px')
+      .addAction('Got it', () => {
+        if (suppress) sessionStorage.setItem(TIPS_SESSION_KEY, '1');
+      })
+      .open();
+  }
+
   applyDimensions(e: { cols: number, rows: number }): void {
     this.cols.set(e.cols);
     this.rows.set(e.rows);

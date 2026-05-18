@@ -555,3 +555,13 @@ footer a:hover { color: var(--accent); }
 .edit-group-input:focus { border-color: var(--accent); }
 select.edit-group-input { cursor: pointer; }
 select.edit-group-input option { background: #2a1a0e; color: var(--cream); }
+
+/* Quick tips dialog */
+.tips-body        { display: flex; flex-direction: column; gap: 18px; padding: 4px 0 6px; }
+.tips-section     { display: flex; flex-direction: column; gap: 6px; }
+.tips-section-header { font-size: 0.60rem; color: var(--accent); letter-spacing: 0.12em; text-transform: uppercase; padding-bottom: 4px; border-bottom: 1px solid var(--soil-light); }
+.tips-row         { display: flex; align-items: baseline; gap: 12px; }
+.tips-key         { font-family: var(--font-mono); font-size: 0.72rem; color: var(--cream); background: rgba(255,255,255,0.07); border: 1px solid var(--soil-light); border-radius: 3px; padding: 2px 7px; white-space: nowrap; flex-shrink: 0; }
+.tips-desc        { font-size: 0.78rem; color: rgba(245,240,232,0.65); }
+.tips-suppress    { display: flex; align-items: center; gap: 8px; font-size: 0.75rem; color: rgba(245,240,232,0.5); cursor: pointer; margin-top: 4px; border-top: 1px solid var(--soil-light); padding-top: 14px; }
+.tips-suppress input[type="checkbox"] { accent-color: var(--accent); width: 14px; height: 14px; cursor: pointer; flex-shrink: 0; }
