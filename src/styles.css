@@ -393,6 +393,47 @@ header h1 {
 .plant-num { color: var(--accent-light); }
 .plant-notes { color: rgba(245,240,232,0.5); font-size: 0.68rem; font-style: italic; }
 
+/* ── Plant selector modal layout ── */
+.plant-selector-modal {
+  height: 85vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.plant-table-wrap {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+/* ── Plant selector tabs ── */
+.plant-tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 16px;
+  border-bottom: 1px solid var(--soil-light);
+  padding-bottom: 0;
+}
+.plant-tab {
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  padding: 6px 16px;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(245,240,232,0.45);
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+.plant-tab:hover { color: var(--accent-light); }
+.plant-tab.active {
+  color: var(--accent-light);
+  border-bottom-color: var(--accent);
+}
+
 @media print {
   body { background: white; color: black; }
   .toolbar, .info-bar, .actions, .command-bar, #cmd-feedback,
