@@ -68,7 +68,8 @@ export class GardenGrid {
   private isPainting      = false;
   private hoveredGroupId: string | null = null;
   private contextMenu:    HTMLElement | null = null;
-  private tooltipEl:      HTMLElement | null = null;
+  private tooltipEl:       HTMLElement | null = null;
+  private resizeTooltipEl: HTMLElement | null = null;
   private gridMouseMoveListener: ((e: MouseEvent) => void) | null = null;
 
   // Box drawing state (ctrl+drag)
@@ -132,6 +133,9 @@ export class GardenGrid {
     if (this.resizeLockCol) c = this.resizeCurrentC;
     if (r === this.resizeCurrentR && c === this.resizeCurrentC) return;
     this.updateResizeBox(r, c);
+    const w = Math.abs(c - this.resizeFixedC) + 1;
+    const h = Math.abs(r - this.resizeFixedR) + 1;
+    this.showResizeTooltip(e.clientX, e.clientY, w, h);
   };
 
   private readonly contextMenuCloseHandler = (e: MouseEvent) => {
@@ -191,10 +195,14 @@ export class GardenGrid {
       this.notifyChange();
       this.isResizing = false;
       this.resizeSnapshot.clear();
+      this.hideResizeTooltip();
       return;
     }
     if (this.isPainting) {
-      if (this.isBoxDrawing) this.commitBox();
+      if (this.isBoxDrawing) {
+        this.commitBox();
+        this.hideResizeTooltip();
+      }
       this.notifyChange();
     }
     this.isPainting   = false;
@@ -372,6 +380,9 @@ export class GardenGrid {
       this.updateBox(r, c);
       this.boxEndRow = r;
       this.boxEndCol = c;
+      const w = Math.abs(c - this.boxStartCol) + 1;
+      const h = Math.abs(r - this.boxStartRow) + 1;
+      this.showResizeTooltip(e.clientX, e.clientY, w, h);
     };
     grid.addEventListener('mousemove', this.gridMouseMoveListener);
     grid.addEventListener('mouseleave', () => {
@@ -1078,6 +1089,22 @@ export class GardenGrid {
   private hideGroupTooltip(): void {
     this.tooltipEl?.remove();
     this.tooltipEl = null;
+  }
+
+  private showResizeTooltip(x: number, y: number, w: number, h: number): void {
+    if (!this.resizeTooltipEl) {
+      this.resizeTooltipEl = document.createElement('div');
+      this.resizeTooltipEl.className = 'group-tooltip';
+      document.body.appendChild(this.resizeTooltipEl);
+    }
+    this.resizeTooltipEl.textContent = `${w} ft × ${h} ft · ${w * h} sq ft`;
+    this.resizeTooltipEl.style.left  = `${x + 14}px`;
+    this.resizeTooltipEl.style.top   = `${y + 14}px`;
+  }
+
+  private hideResizeTooltip(): void {
+    this.resizeTooltipEl?.remove();
+    this.resizeTooltipEl = null;
   }
 
   private deleteGroup(groupId: string): void {
