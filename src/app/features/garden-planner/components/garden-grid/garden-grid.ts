@@ -694,7 +694,7 @@ export class GardenGrid {
     const color = GardenGrid.GROUP_COLORS[groupIndex % GardenGrid.GROUP_COLORS.length];
     const midX  = offX + (b.minC + b.maxC + 1) / 2 * cs;
     const midY  = offY + (b.minR + b.maxR + 1) / 2 * cs;
-    const H = 8, HALF = H / 2;
+    const H = 12, HALF = H / 2;
 
     type HandleDef = { px: number; py: number; fixedR: number; fixedC: number; activeR: number; activeC: number; lockRow: boolean; lockCol: boolean; cursor: string };
     const handles: HandleDef[] = [
