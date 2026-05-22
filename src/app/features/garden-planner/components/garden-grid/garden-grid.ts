@@ -385,9 +385,11 @@ export class GardenGrid {
       this.showResizeTooltip(e.clientX, e.clientY, w, h);
     };
     grid.addEventListener('mousemove', this.gridMouseMoveListener);
-    grid.addEventListener('mouseleave', () => {
+    grid.addEventListener('mouseleave', (e: MouseEvent) => {
       this.hideGroupTooltip();
       if (!this.isResizing && !this.isMoving && this.hoveredGroupId !== null) {
+        const rt = e.relatedTarget as HTMLElement | null;
+        if (rt?.closest?.('#group-handles-layer')) return;
         this.hoveredGroupId = null;
         this.applyGroupHandles();
       }
