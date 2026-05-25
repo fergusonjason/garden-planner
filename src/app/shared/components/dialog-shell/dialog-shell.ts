@@ -18,7 +18,7 @@ export interface DialogAction {
 }
 
 @Component({
-  selector: 'app-dialog-shell',
+  selector: 'gp-dialog-shell',
   standalone: true,
   imports: [CommonModule],
   changeDetection: ChangeDetectionStrategy.OnPush,

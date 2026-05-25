@@ -1,16 +1,12 @@
 import { CommonModule } from '@angular/common';
 import { AfterViewInit, Component, ViewChild, ViewContainerRef } from '@angular/core';
-import { GardenPlannerMain } from './features/garden-planner/components/garden-planner-main/garden-planner-main';
+import { RouterOutlet } from '@angular/router';
 import { DialogService } from './shared/services/dialog-service';
-
-
 
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [CommonModule,
-    GardenPlannerMain
-  ],
+  imports: [CommonModule, RouterOutlet],
   templateUrl: './app.component.html',
   styleUrl: './app.component.css',
 })
