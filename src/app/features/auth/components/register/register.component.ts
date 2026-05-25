@@ -1,6 +1,6 @@
 import { Component, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { Router, RouterLink } from '@angular/router';
+import { Router } from '@angular/router';
 import { AuthService } from '@core/services/auth.service';
 import { ErrorMessageService } from '@core/services/error-message.service';
 import { SignupStatus } from '@shared/types/signup-status.type';
@@ -8,7 +8,7 @@ import { SignupStatus } from '@shared/types/signup-status.type';
 @Component({
   selector: 'gp-register',
   standalone: true,
-  imports: [ReactiveFormsModule, RouterLink],
+  imports: [ReactiveFormsModule],
   templateUrl: './register.component.html',
   styleUrl: './register.component.css'
 })
@@ -30,6 +30,10 @@ export class RegisterComponent {
 
   errorMessages = this.errorMessageService.errorMessages;
   warningMessages = this.errorMessageService.warningMessages;
+
+  cancel(): void {
+    this.router.navigate(['/login']);
+  }
 
   async onSubmit(): Promise<void> {
 

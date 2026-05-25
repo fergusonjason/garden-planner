@@ -1,36 +1,16 @@
-.login-wrap {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  min-height: 80vh;
-}
-
-.login-card {
-  background: #2a1a0e;
-  border: 2px solid var(--accent);
-  border-radius: 6px;
-  padding: 36px 40px;
-  width: 500px;
-  max-width: calc(100vw - 40px);
-  box-shadow: 0 8px 60px rgba(0,0,0,0.65);
-}
-
-h2 {
-  font-family: var(--font-serif);
-  font-size: 1.6rem;
-  color: var(--accent-light);
-  letter-spacing: 0.04em;
-  margin-bottom: 24px;
-  text-align: center;
-}
-
 .field {
   display: flex;
   flex-direction: column;
   gap: 5px;
   margin-bottom: 16px;
 }
+
+.field-row {
+  display: flex;
+  gap: 16px;
+}
+
+.field-row .field { flex: 1; }
 
 label {
   font-size: 0.62rem;
@@ -39,7 +19,7 @@ label {
   text-transform: uppercase;
 }
 
-input {
+input, select {
   background: #1a1209;
   border: 1px solid var(--soil-light);
   border-radius: 3px;
@@ -51,7 +31,32 @@ input {
   width: 100%;
 }
 
-input:focus { border-color: var(--accent); }
+input:focus, select:focus { border-color: var(--accent); }
+
+select option { background: #2a1a0e; }
+
+.field-check {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.field-check input[type="checkbox"] {
+  width: 15px;
+  height: 15px;
+  accent-color: var(--accent);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.field-check label {
+  font-size: 0.78rem;
+  color: var(--cream);
+  letter-spacing: 0.04em;
+  text-transform: none;
+  cursor: pointer;
+}
 
 .error {
   font-size: 0.74rem;
@@ -77,15 +82,3 @@ input:focus { border-color: var(--accent); }
 
 .btn-submit:hover:not(:disabled) { background: var(--accent); color: var(--text); }
 .btn-submit:disabled { opacity: 0.4; cursor: not-allowed; }
-
-.auth-link {
-  display: block;
-  text-align: center;
-  margin-top: 16px;
-  font-size: 0.74rem;
-  color: var(--grass-light);
-  letter-spacing: 0.06em;
-  text-decoration: none;
-}
-
-.auth-link:hover { color: var(--accent-light); }

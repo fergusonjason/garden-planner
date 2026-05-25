@@ -4,7 +4,6 @@
   align-items: center;
   justify-content: center;
   min-height: 80vh;
-  width: 100%;
 }
 
 .login-card {
@@ -12,8 +11,8 @@
   border: 2px solid var(--accent);
   border-radius: 6px;
   padding: 36px 40px;
-  width: 100%;
-  max-width: 400px;
+  width: 500px;
+  max-width: calc(100vw - 40px);
   box-shadow: 0 8px 60px rgba(0,0,0,0.65);
 }
 
@@ -88,14 +87,19 @@ input:focus { border-color: var(--accent); }
 .btn-submit:hover:not(:disabled) { background: var(--accent); color: var(--text); }
 .btn-submit:disabled { opacity: 0.4; cursor: not-allowed; }
 
-.auth-link {
-  display: block;
-  text-align: center;
-  margin-top: 16px;
-  font-size: 0.74rem;
-  color: var(--grass-light);
-  letter-spacing: 0.06em;
-  text-decoration: none;
+.btn-cancel {
+  width: 100%;
+  padding: 9px 16px;
+  border-radius: 3px;
+  border: 1.5px solid var(--soil-light);
+  background: transparent;
+  color: rgba(245,240,232,0.45);
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  cursor: pointer;
+  letter-spacing: 0.08em;
+  transition: all 0.15s;
+  margin-top: 8px;
 }
 
-.auth-link:hover { color: var(--accent-light); }
+.btn-cancel:hover { border-color: var(--accent); color: var(--accent); }

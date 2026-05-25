@@ -281,6 +281,8 @@ header h1 {
   color: rgba(245,240,232,0.55);
 }
 .btn-action.ghost:hover { border-color: var(--accent); color: var(--accent); background: transparent; }
+.btn-action.danger { border-color: #e07070; color: #e07070; }
+.btn-action.danger:hover { background: #e07070; color: var(--text); }
 
 .actions {
   display: flex;

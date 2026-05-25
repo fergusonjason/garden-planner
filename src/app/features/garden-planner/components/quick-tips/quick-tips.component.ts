@@ -1,42 +1,23 @@
-import { Component, input } from '@angular/core';
+import { Component, inject } from '@angular/core';
+import { UserService } from '@core/services/user.service';
+import { UserProfileBuilder } from '@shared/models/user-profile.builder';
+import { UserPreferencesBuilder } from '@shared/models/user-preferences.builder';
 
 @Component({
   selector: 'quick-tips',
   standalone: true,
-  template: `
-    <div class="tips-body">
-      <section class="tips-section">
-        <div class="tips-section-header">Planting Groups</div>
-        <div class="tips-row"><span class="tips-key">Ctrl + drag</span><span class="tips-desc">Draw a new planting group</span></div>
-        <div class="tips-row"><span class="tips-key">Ctrl + click group</span><span class="tips-desc">Move a group by dragging</span></div>
-        <div class="tips-row"><span class="tips-key">Hover group</span><span class="tips-desc">Reveal resize handles</span></div>
-        <div class="tips-row"><span class="tips-key">Right-click</span><span class="tips-desc">Edit or delete the group under cursor</span></div>
-      </section>
-
-      <section class="tips-section">
-        <div class="tips-section-header">Free Planting</div>
-        <div class="tips-row"><span class="tips-key">Click / drag</span><span class="tips-desc">Paint cells with the selected plant</span></div>
-        <div class="tips-row"><span class="tips-key">Shift + drag</span><span class="tips-desc">Erase cells</span></div>
-      </section>
-
-      <section class="tips-section">
-        <div class="tips-section-header">General</div>
-        <div class="tips-row"><span class="tips-key">Ctrl+Z</span><span class="tips-desc">Undo</span></div>
-        <div class="tips-row"><span class="tips-key">Ctrl+Y</span><span class="tips-desc">Redo</span></div>
-        <div class="tips-row"><span class="tips-key">Right-click (empty)</span><span class="tips-desc">Show context menu</span></div>
-      </section>
-
-      <label class="tips-suppress">
-        <input type="checkbox" (change)="onCheck($event)" />
-        Do not show quick tips in the future
-      </label>
-    </div>
-  `,
+  templateUrl: './quick-tips.component.html',
 })
 export class QuickTipsComponent {
-  onChange = input<(suppress: boolean) => void>(() => {});
+  private readonly userService = inject(UserService);
 
-  onCheck(e: Event): void {
-    this.onChange()((e.target as HTMLInputElement).checked);
+  async onCheck(e: Event): Promise<void> {
+    const suppress = (e.target as HTMLInputElement).checked;
+    const profile = this.userService.profile;
+    if (!profile?.preferences) return;
+
+    const updatedPrefs = UserPreferencesBuilder.from(profile.preferences).showQuickTips(!suppress).build();
+    const updatedProfile = UserProfileBuilder.from(profile).preferences(updatedPrefs).build();
+    await this.userService.upsertProfile(updatedProfile);
   }
 }

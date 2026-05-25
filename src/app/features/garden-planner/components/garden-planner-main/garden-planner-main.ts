@@ -1,8 +1,9 @@
 import { CommonModule } from '@angular/common';
-import { Component, computed, DestroyRef, inject, signal } from '@angular/core';
+import { afterNextRender, Component, computed, DestroyRef, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
+import { Router } from '@angular/router';
 import { APPLICATION_VERSION } from 'src/app/core/tokens/application-version.token';
 import { PLANT_MAP } from 'src/app/shared/constants/plant-map-constants';
 import { SelectedPlant } from 'src/app/shared/models/selected-plant';
@@ -14,9 +15,12 @@ import { PlantingSelector } from '../planting-selector/planting-selector';
 import { PlantingToolbar } from '../planting-toolbar/planting-toolbar';
 import { InstructionsComponent } from '../instructions-component/instructions.component';
 import { QuickTipsComponent } from '../quick-tips/quick-tips.component';
+import { PreferencesComponent } from '../preferences/preferences.component';
 import { ExportService } from 'src/app/core/services/export-service';
+import { AuthService } from '@core/services/auth.service';
+import { UserService } from '@core/services/user.service';
+import { UserPreferencesBuilder } from '@shared/models/user-preferences.builder';
 
-const TIPS_SESSION_KEY = 'garden-planner-hide-tips';
 
 @Component({
   selector: 'garden-planner-main',
@@ -33,9 +37,12 @@ const TIPS_SESSION_KEY = 'garden-planner-hide-tips';
 })
 export class GardenPlannerMain {
 
+  private gardenService  = inject(GardenService);
+  private authService    = inject(AuthService);
+  private userService    = inject(UserService);
+  private router         = inject(Router);
   private dialogService  = inject(DialogService);
   private formBuilder    = inject(FormBuilder);
-  private gardenService  = inject(GardenService);
   private exportService = inject(ExportService);
   private destroyRef = inject(DestroyRef)
 
@@ -80,6 +87,23 @@ export class GardenPlannerMain {
   // ─── Modal ──────────────────────────────────────────────────────────────────
   plantSelectorDialogOpen = signal<boolean>(false);
 
+  constructor() {
+    afterNextRender(() => {
+      const prefs = this.userService.profile?.preferences;
+
+      if (prefs?.grid_size) {
+        const { width, height } = prefs.grid_size;
+        this.cols.set(width);
+        this.rows.set(height);
+        this.planForm.controls.dimensions2.setValue({ cols: width, rows: height });
+        this.planForm.controls.gardenGridData2.patchValue({ cols: width, rows: height });
+      }
+
+      if (prefs?.show_quick_tips ?? true) {
+        this.showQuickTips();
+      }
+    });
+  }
   // ─── Listeners ───────────────────────────────────────────────────────────────
   private keydownListener = (e: KeyboardEvent) => {
     if (e.key === 'Escape') this.closeModal();
@@ -95,35 +119,40 @@ export class GardenPlannerMain {
         console.log(JSON.stringify(value, null, 2));
       });
 
-    if (!sessionStorage.getItem(TIPS_SESSION_KEY)) {
-      setTimeout(() => this.showQuickTips());
-    }
   }
 
   ngOnDestroy(): void {
     document.removeEventListener('keydown', this.keydownListener);
   }
 
-  // ─── Dimensions ─────────────────────────────────────────────────────────────
   private showQuickTips(): void {
-    let suppress = false;
     this.dialogService.createDialog()
       .setTitle('Quick Tips')
-      .setDialogContent(QuickTipsComponent, {
-        onChange: (value: boolean) => { suppress = value; },
-      })
+      .setDialogContent(QuickTipsComponent)
       .setWidth('480px')
-      .addAction('Got it', () => {
-        if (suppress) sessionStorage.setItem(TIPS_SESSION_KEY, '1');
-      })
+      .addAction('Got it', () => {})
       .open();
   }
 
-  applyDimensions(e: { cols: number, rows: number }): void {
+  async applyDimensions(e: { cols: number, rows: number }): Promise<void> {
     this.cols.set(e.cols);
     this.rows.set(e.rows);
     const notes = this.planForm.controls.gardenGridData2.value.notes ?? '';
     this.planForm.controls.gardenGridData2.setValue({ cols: e.cols, rows: e.rows, cells: [], groups: [], notes });
+
+    const prefs = this.userService.profile?.preferences;
+    if (prefs) {
+      const updated = UserPreferencesBuilder.from(prefs).gridSize({ width: e.cols, height: e.rows }).build();
+      await this.userService.updatePreferences(updated);
+    }
+  }
+
+  doOpenPreferences(): void {
+    this.dialogService.createDialog()
+      .setTitle('Preferences')
+      .setDialogContent(PreferencesComponent)
+      .setWidth('500px')
+      .open();
   }
 
   doOpenInstructions(): void {
@@ -212,6 +241,12 @@ export class GardenPlannerMain {
     } catch (err: any) {
       this.setFeedback(`✗ Failed to load: ${err.message}`, 'feedback-err');
     }
+  }
+
+  // ─── Auth ────────────────────────────────────────────────────────────────────
+  async logout(): Promise<void> {
+    await this.authService.signOut();
+    this.router.navigate(['/login']);
   }
 
   // ─── Helpers ─────────────────────────────────────────────────────────────────

@@ -1,6 +1,7 @@
 import { inject, Injectable, signal } from '@angular/core';
 import { ApplicationError } from '@core/errors/application-error';
 import { SupabaseService } from '@core/services/supabase.service';
+import { UserService } from '@core/services/user.service';
 import { SignupStatus } from '@shared/types/signup-status.type';
 import { User } from '@supabase/supabase-js';
 
@@ -10,6 +11,7 @@ import { User } from '@supabase/supabase-js';
 export class AuthService {
 
   private readonly supabaseService: SupabaseService = inject(SupabaseService);
+  private readonly userService = inject(UserService);
 
   readonly currentUser = signal<User | null>(null);
 
@@ -60,6 +62,7 @@ export class AuthService {
       throw new ApplicationError('Failed to sign out', error);
     }
     this.currentUser.set(null);
+    this.userService.clearProfile();
   }
 
   async getSession(): Promise<void> {

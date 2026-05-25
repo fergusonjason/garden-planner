@@ -1,5 +1,6 @@
 import { ApplicationError } from '@core/errors/application-error';
 import { UserProfile, UserProfileSchema } from './user-profile';
+import { UserPreferences } from './user-preferences';
 
 export class UserProfileBuilder {
 
@@ -7,6 +8,12 @@ export class UserProfileBuilder {
 
   constructor(id: string) {
     this.profile = { id };
+  }
+
+  static from(existing: UserProfile): UserProfileBuilder {
+    const builder = new UserProfileBuilder(existing.id);
+    Object.assign(builder.profile, existing);
+    return builder;
   }
 
   displayName(value: string | null): this {
@@ -19,7 +26,7 @@ export class UserProfileBuilder {
     return this;
   }
 
-  preferences(value: Record<string, unknown> | null): this {
+  preferences(value: UserPreferences | null): this {
     this.profile.preferences = value;
     return this;
   }
@@ -29,18 +36,18 @@ export class UserProfileBuilder {
     return this;
   }
 
-  subscription(value: string | null): this {
-    this.profile.subscription = value;
+  subscriptionType(value: string | null): this {
+    this.profile.subscription_type = value;
     return this;
   }
 
-  createdAt(value: string | null): this {
-    this.profile.created_at = value;
+  dateCreated(value: string | null): this {
+    this.profile.date_created = value;
     return this;
   }
 
-  updatedAt(value: string | null): this {
-    this.profile.updated_at = value;
+  dateUpdated(value: string | null): this {
+    this.profile.date_updated = value;
     return this;
   }
 
@@ -50,9 +57,9 @@ export class UserProfileBuilder {
       avatar_url: null,
       preferences: null,
       custom_plants: null,
-      subscription: null,
-      created_at: null,
-      updated_at: null,
+      subscription_type: null,
+      date_created: null,
+      date_updated: null,
       ...this.profile
     });
 

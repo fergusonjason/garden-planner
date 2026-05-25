@@ -1,0 +1,6 @@
+<gp-profile-settings-form #settingsForm [showSubmitButton]="false" (saved)="onSaved()" />
+<div class="pref-actions">
+  <button class="btn-action" (click)="settingsForm.save()">Save</button>
+  <button class="btn-action ghost" (click)="cancel()">Cancel</button>
+
+</div>

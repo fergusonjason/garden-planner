@@ -1,0 +1,44 @@
+<form [formGroup]="form" (ngSubmit)="onSubmit()">
+
+  <div class="field">
+    <label for="display_name">Display Name</label>
+    <input id="display_name" type="text" formControlName="display_name" />
+  </div>
+
+  <div class="field">
+    <label for="preferred_units">Preferred Units</label>
+    <select id="preferred_units" formControlName="preferred_units">
+      <option value="feet">Feet</option>
+      <option value="meters">Meters</option>
+    </select>
+  </div>
+
+  <div class="field-row" formGroupName="grid_size">
+    <div class="field">
+      <label for="grid_width">Garden Width</label>
+      <input id="grid_width" type="number" formControlName="width" min="1" max="500" />
+    </div>
+    <div class="field">
+      <label for="grid_height">Garden Height</label>
+      <input id="grid_height" type="number" formControlName="height" min="1" max="500" />
+    </div>
+  </div>
+
+  <div class="field-check">
+    <input id="show_quick_tips" type="checkbox" formControlName="show_quick_tips" />
+    <label for="show_quick_tips">Show quick tips</label>
+  </div>
+
+  @if (errorMessages().length > 0) {
+    @for (errorMessage of errorMessages(); track $index) {
+      <p class="error">{{ errorMessage }}</p>
+    }
+  }
+
+  @if (showSubmitButton()) {
+    <button class="btn-submit" type="submit" [disabled]="form.invalid || isLoading()">
+      {{ isLoading() ? 'Saving...' : submitLabel() }}
+    </button>
+  }
+
+</form>
