@@ -13,13 +13,43 @@
     </select>
   </div>
 
+  <div class="field">
+    <label>Temperature Scale</label>
+    <div class="radio-group">
+      <label class="radio-option">
+        <input type="radio" formControlName="temperature_scale" value="fahrenheit" />
+        Fahrenheit (°F)
+      </label>
+      <label class="radio-option">
+        <input type="radio" formControlName="temperature_scale" value="celsius" />
+        Celsius (°C)
+      </label>
+    </div>
+  </div>
+
+  <div class="field">
+    <label for="country">Country</label>
+    <select id="country" formControlName="country">
+      @for (c of countries(); track c.code) {
+        <option [value]="c.code">{{ c.name }}</option>
+      }
+    </select>
+  </div>
+
+  @if (isUS()) {
+    <div class="field">
+      <label>USDA Growing Zone</label>
+      <gp-typeahead [dataFn]="zoneDataFn" placeholder="Enter ZIP code" (selected)="onZoneSelected($event)" />
+    </div>
+  }
+
   <div class="field-row" formGroupName="grid_size">
     <div class="field">
-      <label for="grid_width">Garden Width</label>
+      <label for="grid_width">Default Garden Width</label>
       <input id="grid_width" type="number" formControlName="width" min="1" max="500" />
     </div>
     <div class="field">
-      <label for="grid_height">Garden Height</label>
+      <label for="grid_height">Default Garden Height</label>
       <input id="grid_height" type="number" formControlName="height" min="1" max="500" />
     </div>
   </div>

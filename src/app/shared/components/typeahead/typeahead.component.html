@@ -1,0 +1,32 @@
+<div class="typeahead">
+  <input
+    #inputEl
+    type="text"
+    [placeholder]="placeholder()"
+    [value]="inputValue()"
+    (input)="onInput($event)"
+    (keydown)="onKeydown($event)"
+    (focus)="onFocus(inputEl)"
+    (blur)="onBlur()"
+    autocomplete="off"
+  />
+
+  @if (isOpen() && suggestions().length > 0) {
+    <ul class="suggestions" role="listbox">
+      @for (s of suggestions(); track $index; let i = $index) {
+        <li
+          role="option"
+          [attr.aria-selected]="activeIndex() === i"
+          [class.active]="activeIndex() === i"
+          (mousedown)="select(s)"
+        >
+          {{ s.name }}
+        </li>
+      }
+    </ul>
+  }
+
+  @if (inputValue().length >= minChars() && suggestions().length === 0) {
+    <p class="no-results">No results found.</p>
+  }
+</div>

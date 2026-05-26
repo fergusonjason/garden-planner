@@ -31,9 +31,11 @@
  </div>
 
 <!-- Grid -->
-<garden-planner-grid formGroupName="gardenGridData2"
-  [selectedPlant]="selectedPlant()"
-  (paintedCountChange)="paintedCount.set($event)"/>
+<div class="alignCenter">
+  <garden-planner-grid formGroupName="gardenGridData2"
+    [selectedPlant]="selectedPlant()"
+    (paintedCountChange)="paintedCount.set($event)"/>
+</div>
 
 <!-- Info bar -->
 <div class="info-bar alignCenter my-2">

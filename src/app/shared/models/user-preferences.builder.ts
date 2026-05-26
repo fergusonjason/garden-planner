@@ -20,6 +20,11 @@ export class UserPreferencesBuilder {
     return this;
   }
 
+  temperatureScale(value: 'fahrenheit' | 'celsius'): this {
+    this.prefs.temperature_scale = value;
+    return this;
+  }
+
   gridSize(value: GridSize): this {
     this.prefs.grid_size = value;
     return this;
@@ -27,6 +32,16 @@ export class UserPreferencesBuilder {
 
   showQuickTips(value: boolean): this {
     this.prefs.show_quick_tips = value;
+    return this;
+  }
+
+  country(value: string | null | undefined): this {
+    this.prefs.country = value;
+    return this;
+  }
+
+  growingZone(value: string | null | undefined): this {
+    this.prefs.growing_zone = value;
     return this;
   }
 

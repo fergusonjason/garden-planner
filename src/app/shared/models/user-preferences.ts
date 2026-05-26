@@ -7,8 +7,11 @@ export const GridSizeSchema = z.object({
 
 export const UserPreferencesSchema = z.object({
   preferred_units: z.enum(['feet', 'meters']).default('feet'),
+  temperature_scale: z.enum(['fahrenheit', 'celsius']).default('fahrenheit'),
+  country: z.string().nullish(),
   grid_size: GridSizeSchema,
-  show_quick_tips: z.boolean().default(true)
+  show_quick_tips: z.boolean().default(true),
+  growing_zone: z.string().nullish()
 });
 
 export type GridSize = z.infer<typeof GridSizeSchema>;

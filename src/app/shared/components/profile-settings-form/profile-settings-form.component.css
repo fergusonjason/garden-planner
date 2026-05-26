@@ -35,6 +35,30 @@ input:focus, select:focus { border-color: var(--accent); }
 
 select option { background: #2a1a0e; }
 
+.radio-group {
+  display: flex;
+  gap: 20px;
+}
+
+.radio-option {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 0.88rem;
+  color: var(--cream);
+  letter-spacing: 0.04em;
+  text-transform: none;
+  cursor: pointer;
+}
+
+.radio-option input[type="radio"] {
+  width: 14px;
+  height: 14px;
+  accent-color: var(--accent);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
 .field-check {
   display: flex;
   align-items: center;
@@ -56,6 +80,12 @@ select option { background: #2a1a0e; }
   letter-spacing: 0.04em;
   text-transform: none;
   cursor: pointer;
+}
+
+.zone-display {
+  font-size: 0.78rem;
+  color: var(--accent);
+  letter-spacing: 0.04em;
 }
 
 .error {

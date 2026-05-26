@@ -40,3 +40,6 @@ Thumbs.db
 .agents/
 .claude/
 skills-lock.json
+
+# Reference data files
+/scripts/*.json

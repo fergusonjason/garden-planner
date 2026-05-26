@@ -2,6 +2,7 @@ import { inject, Injectable, signal } from '@angular/core';
 import { ApplicationError } from '@core/errors/application-error';
 import { SupabaseService } from '@core/services/supabase.service';
 import { UserService } from '@core/services/user.service';
+import { UiService } from '@core/services/ui.service';
 import { SignupStatus } from '@shared/types/signup-status.type';
 import { User } from '@supabase/supabase-js';
 
@@ -12,6 +13,7 @@ export class AuthService {
 
   private readonly supabaseService: SupabaseService = inject(SupabaseService);
   private readonly userService = inject(UserService);
+  private readonly uiService = inject(UiService);
 
   readonly currentUser = signal<User | null>(null);
 
@@ -78,6 +80,9 @@ export class AuthService {
 
     this.supabaseService.client.auth.onAuthStateChange((event, session) => {
       this.currentUser.set(session?.user ?? null);
+      if (event === 'SIGNED_IN') {
+        this.uiService.initialize();
+      }
     });
   }
 }
