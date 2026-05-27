@@ -23,7 +23,7 @@ export class PlantingToolbar {
     { key: 'tomato',   label: 'Tomatoes',    color: PLANT_MAP['tomato'].color },
     { key: 'cucumber', label: 'Cucumbers',   color: PLANT_MAP['cucumber'].color },
     { key: 'corn',     label: 'Corn',        color: PLANT_MAP['corn'].color },
-    { key: 'bean',     label: 'Green Beans', color: PLANT_MAP['bean'].color },
+    { key: 'green bean', label: 'Green Beans', color: PLANT_MAP['green bean'].color },
     { key: 'carrot',   label: 'Carrots',     color: PLANT_MAP['carrot'].color },
     { key: 'pepper',   label: 'Peppers',     color: PLANT_MAP['pepper'].color },
   ];

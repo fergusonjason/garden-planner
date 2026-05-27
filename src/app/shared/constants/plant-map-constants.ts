@@ -1,18 +1,17 @@
 import { PlantMap } from "../types/plant-map.type";
 
 export const VEGETABLE_MAP: PlantMap = {
-  bean:        { rowWidth:1, gap:2, inRowSpacing: 6,  color:'#7a9a4a', notes:'Bush or pole types',     aliases:['beans','bean','green bean','green beans'] },
+  'green bean': { rowWidth:1, gap:2, inRowSpacing: 6,  color:'#7a9a4a', notes:'Bush or pole types',     aliases:['beans','bean','green bean','green beans'] },
   beet:        { rowWidth:1, gap:1, inRowSpacing: 3,  color:'#8a2a5a', notes:'Thin to 3 in apart',     aliases:['beets','beet','beetroot'] },
   broccoli:    { rowWidth:2, gap:2, inRowSpacing: 18, color:'#3a6a4a', notes:'Side shoots continue',   aliases:['broccoli'] },
   cabbage:     { rowWidth:2, gap:2, inRowSpacing: 18, color:'#4a7a5a', notes:'Large heads',            aliases:['cabbage','cabbages'] },
   carrot:      { rowWidth:1, gap:1, inRowSpacing: 3,  color:'#d4782a', notes:'Deep loose soil',        aliases:['carrots','carrot'] },
   cauliflower: { rowWidth:2, gap:2, inRowSpacing: 18, color:'#c8c8a0', notes:'Blanch heads',           aliases:['cauliflower'] },
   corn:        { rowWidth:1, gap:2, inRowSpacing: 12, color:'#c9a84c', notes:'Plant in blocks',        aliases:['corn','maize','sweetcorn'] },
-  cowpea:      { rowWidth:1, gap:2, inRowSpacing: 6,  color:'#8faa5a', notes:'Heat-tolerant legume',   aliases:['cowpeas','cowpea','black-eyed peas','black eyed peas','southern peas'] },
+  cowpea:      { rowWidth:1, gap:2, inRowSpacing: 6,  color:'#8faa5a', notes:'Also called black-eyed peas; heat-tolerant legume', aliases:['cowpeas','cowpea','black-eyed peas','black eyed peas','southern peas'] },
   cucumber:    { rowWidth:2, gap:3, inRowSpacing: 12, color:'#4a8a2a', notes:'Trellis saves space',    aliases:['cucumbers','cucumber'] },
   eggplant:    { rowWidth:2, gap:3, inRowSpacing: 18, color:'#6a3a8a', notes:'Needs heat',             aliases:['eggplant','aubergine'] },
   garlic:      { rowWidth:1, gap:1, inRowSpacing: 6,  color:'#c8b898', notes:'Fall planting',          aliases:['garlic'] },
-  herb:        { rowWidth:1, gap:1, inRowSpacing: 9,  color:'#7aba8a', notes:'Mixed herb rows',        aliases:['herbs','herb'] },
   kale:        { rowWidth:1, gap:2, inRowSpacing: 12, color:'#3a7a3a', notes:'Cold-hardy',             aliases:['kale'] },
   lettuce:     { rowWidth:1, gap:1, inRowSpacing: 8,  color:'#5a9e4a', notes:'Partial shade ok',       aliases:['lettuce','salad'] },
   melon:       { rowWidth:3, gap:5, inRowSpacing: 24, color:'#8aba4a', notes:'Needs warm season',      aliases:['melons','melon','watermelon','cantaloupe'] },

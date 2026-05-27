@@ -4,6 +4,13 @@ import { SupabaseService } from './supabase.service';
 import { type Country } from '@shared/constants/countries';
 import { type UsdaZoneRecord } from '@shared/models/usda-zone';
 
+export interface PlantVarietyGroup {
+  group: string;
+  varieties: string[];
+}
+
+export type VegetableVarietyMap = Record<string, PlantVarietyGroup[]>;
+
 const BUCKET = 'GP-Default-Data';
 
 interface RefDataMetadata {
@@ -17,6 +24,7 @@ export class UiService {
 
   readonly countries = signal<readonly Country[]>([]);
   readonly growingZones = signal<readonly UsdaZoneRecord[]>([]);
+  readonly vegetableVarieties = signal<VegetableVarietyMap>({});
 
   /** Distinct sorted zone codes derived from the full zipcode dataset. */
   readonly uniqueZones = computed(() => {
@@ -43,9 +51,13 @@ export class UiService {
 
       const countries = await this.idb.get<Country[]>('countries');
       const growingZones = await this.idb.get<UsdaZoneRecord[]>('usda-zones');
+      const vegetableVarieties = await this.idb.get<VegetableVarietyMap>('vegetable-varieties');
 
       if (countries?.length) this.countries.set(countries);
       if (growingZones?.length) this.growingZones.set(growingZones);
+      if (vegetableVarieties && Object.keys(vegetableVarieties).length) {
+        this.vegetableVarieties.set(vegetableVarieties);
+      }
     } catch (err) {
       console.error('[UiService] Initialization failed:', err);
     }
@@ -56,15 +68,17 @@ export class UiService {
   }
 
   private async downloadAndStore(version: string): Promise<void> {
-    const [countries, growingZones] = await Promise.all([
+    const [countries, growingZones, vegetableVarieties] = await Promise.all([
       this.downloadJson<Country[]>('countries.json.gz'),
-      this.downloadJson<UsdaZoneRecord[]>('usda-zones.json.gz')
+      this.downloadJson<UsdaZoneRecord[]>('usda-zones.json.gz'),
+      this.downloadJson<VegetableVarietyMap>('vegetable-varieties.json.gz'),
     ]);
 
     await Promise.all([
       this.idb.set('countries', countries),
       this.idb.set('usda-zones', growingZones),
-      this.idb.set('meta:version', version)
+      this.idb.set('vegetable-varieties', vegetableVarieties),
+      this.idb.set('meta:version', version),
     ]);
   }
 
