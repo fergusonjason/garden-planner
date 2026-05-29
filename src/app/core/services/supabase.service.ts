@@ -7,15 +7,16 @@ import { environment } from '@environments/environment';
 })
 export class SupabaseService {
 
-  private readonly supabase: SupabaseClient;
+  private readonly supabase: SupabaseClient<any, 'gp'>;
 
   constructor() {
     this.supabase = createClient(environment.supabaseUrl, environment.supabaseKey, {
-      auth: { storage: window.sessionStorage }
+      auth: { storage: window.sessionStorage },
+      db: { schema: "gp"}
     });
   }
 
-  get client(): SupabaseClient {
+  get client(): SupabaseClient<any, 'gp'> {
     return this.supabase;
   }
 }
