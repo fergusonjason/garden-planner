@@ -38,6 +38,7 @@
     "@angular/compiler-cli": "^21.2.5",
     "@vitest/coverage-v8": "^4.1.7",
     "angular-cli-ghpages": "^3.0.2",
+    "jsdom": "^29.1.1",
     "standard-version": "^9.5.0",
     "typescript": "~5.9.0",
     "vitest": "^4.1.7"
